@@ -13,7 +13,7 @@ ser = serial.Serial('/dev/cu.usbmodem14201', baudrate = 115200, timeout = 1)
 
 time.sleep(1)
 
-
+print('hello')
 
 
 xNeg = 'G91 X-1\n'
