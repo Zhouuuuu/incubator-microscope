@@ -8,6 +8,8 @@ import os
 import numpy as np
 import cv2
 
+#Comments
+
 plate_dict = {
     "Home": [0,0,0],
     "A1": [5,5,0],
