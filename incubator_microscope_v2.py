@@ -8,8 +8,6 @@ import os
 import numpy as np
 import cv2
 
-#Comments
-
 plate_dict = {
     "Home": [0,0,0],
     "A1": [5,5,0],
@@ -103,7 +101,8 @@ class CNC:
             well_x = str(plate[well][0])
             well_y = str(plate[well][1])
             well_z = str(plate[well][2])
-            self.axes.write("G0 X{well_x} Y{well_y} Z{well_z}\n".encode())
+            gcode_command = f"G0 X{well_x} Y{well_y} Z{well_z}\n"
+            self.axes.write(gcode_command.encode())
             position = plate[well]
             print("Current position:", position)
             return position
@@ -124,7 +123,8 @@ class CNC:
                 if x < xMin or x > xMax or y < yMin or y > yMax or z < zMin or z > zMax:
                     print("Beyond axis limit.")
                 else:
-                    self.axes.write("G91 X{jog_dict[jog_input][0]} Y{jog_dict[jog_input][1]} Z{jog_dict[jog_input][2]}\n".encode())
+                    gcode_command = "G91 X{jog_dict[jog_input][0]} Y{jog_dict[jog_input][1]} Z{jog_dict[jog_input][2]}\n"
+                    self.axes.write(gcode_command.encode())
                     position = [x,y,z]
                     print("Current position:", self.position)
             elif jog_input == "esc":
