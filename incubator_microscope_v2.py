@@ -9,19 +9,18 @@ import numpy as np
 import cv2
 from collections import OrderedDict
 
-<<<<<<< HEAD
-plate_96 = {
-    "Home": [0,0,0],
-    "A1": [5,5,0],
-    "B1": [10,10,0],
-    "C1": [5,5,-5]
-    }
-=======
+#plate_96 = {
+#    "Home": [0,0,0],
+#    "A1": [5,5,0],
+#    "B1": [10,10,0],
+#    "C1": [5,5,-5]
+#    }
+
 plate_96 = OrderedDict([
-    ("Home", [0,0,0]),
+    #("Home", [0,0,0]),
     ("A1", [5,5,0]),
     ("B1", [10,10,0]),
-    ("C1", [5,5,-5])
+    ("C1", [15,15,0])
     ])
 
 plate_list = {"6": "plate_6",
@@ -30,7 +29,6 @@ plate_list = {"6": "plate_6",
               "48": "plate_48",
               "96": plate_96
               }
->>>>>>> refactored
 
 plate_list = {"6": "plate_6",
               "12": "plate_12",
@@ -95,25 +93,9 @@ class Camera:
         self.camera.StopGrabbing()
         self.camera.Close()
         return True
-    
-<<<<<<< HEAD
-    def night_cycle(self, well_num):
-=======
-    def night_cycle(self, plate_dict):
->>>>>>> refactored
-        #home machine
-        #how many wells
-        start_time = datetime.datetime.now()
-        current_time = datetime.datetime.now()
-        time_change = current_time - start_time
-        while time_change.seconds < 60:
-            for well in plate_dict:
-                gcode_command = f"G0 X{well[0]} Y{well[1]} Z{well[2]}\n"
-                self.axes.write(gcode_command.encode())
-                time.sleep(3)
-        return True
 
-class CNC:
+
+class CNC(Camera):
     def __init__(self):
         self.axes = serial.Serial("COM4", baudrate = 115200, timeout = 1)
         #self.LED = serial.Serial #initialize LED
@@ -130,20 +112,17 @@ class CNC:
 
     def wellplate(self, plate_list):
         while True:
-            print("Number of wells in well plate?")
+            print("\nNumber of wells in well plate?")
             well_num = input(">> ")
-<<<<<<< HEAD
-            if num_wells in plate_list:
-=======
             if well_num in plate_list:
->>>>>>> refactored
                 well_num = plate_list[well_num]
                 return well_num
             print("Please enter a valid number (6, 12, 24, 48, 96).")
         
 
     def well_move(self, plate, position):
-        print("Which well (ex. A1)?")
+
+        print("\nWhich well (ex. A1)?")
         print("Type 'esc' to go back.")
         well = input(">> ")
         if well in plate and position == plate[well]:
@@ -152,10 +131,9 @@ class CNC:
             x_move = str(plate[well][0] - position[0])
             y_move = str(plate[well][1] - position[1])
             z_move = str(plate[well][2] - position[2])
-            gcode_command = f"G0 X{x_move} Y{y_move} Z{z_move}\n"
+            gcode_command = f"G91 X{x_move} Y{y_move} Z{z_move}\n"
             self.axes.write(gcode_command.encode())
             position = plate[well]
-            print("Current position:", position)
             return position
         elif well == "esc":
             print("Exited")
@@ -175,8 +153,10 @@ class CNC:
                 jog_dict["q"] = [0, 0, -jog_increment]
                 jog_dict["e"] = [0, 0, jog_increment]
                 while True:
-                    print("Use the 'wasd' keys to jog the X and Y axes. Use the q and e keys to jog the Z axis.\n>> ")
+                    print("\nUse the 'wasd' keys to jog the X and Y axes.")
+                    print("Use the q and e keys to jog the Z axis.")
                     print("Type 'esc' to exit. Type 'back' to change the jog increment.")
+                    print("Current position:", position)
                     jog_input = input(">> ")
                     if jog_input in jog_dict:
                         x = round(position[0] + jog_dict[jog_input][0], 5)
@@ -188,38 +168,53 @@ class CNC:
                             jog_command = f"G91 X{jog_dict[jog_input][0]} Y{jog_dict[jog_input][1]} Z{jog_dict[jog_input][2]}\n"
                             self.axes.write(jog_command.encode())
                             position = [x,y,z]
-                            print("Current position:", position)
                     elif jog_input == "back":
                         break
                     elif jog_input == "esc":
-                        print("Current position:", position)
                         return position
                     else:
                         print("Invalid input. Please try again.")
                 else:
                     print("Input must be a number greater than zero")
         except ValueError as error:
-            print(error)
+            print("\n",error)
             print("Input must be number greater than zero.")
             return position
-<<<<<<< HEAD
-=======
 
-    def night_cycle(self, plate_dict):
+    def night_cycle(self, plate_dict, camera, position):
         #home machine
         start_time = datetime.datetime.now()
         current_time = datetime.datetime.now()
         time_change = current_time - start_time
-        while time_change.seconds < 20:
+        while time_change.seconds < 30:
             for well in plate_dict:
-                gcode_command = f"G0 X{plate_dict[well][0]} Y{plate_dict[well][1]} Z{plate_dict[well][2]}\n"
-                self.axes.write(gcode_command.encode())
-                time.sleep(2)
+                
                 current_time = datetime.datetime.now()
                 time_change = current_time - start_time
                 print(time_change.seconds)
+
+                print(type(plate_dict[well][0]))
+                print(type(position[0]))
+
+                x_move = str(plate_dict[well][0] - position[0])
+                y_move = str(plate_dict[well][1] - position[1])
+                z_move = str(plate_dict[well][2] - position[2])
+                gcode_command = f"G91 X{x_move} Y{y_move} Z{z_move}\n"
+                self.axes.write(gcode_command.encode())
+                position = plate_dict[well]
+
+               
+                #gcode_command = f"G0 X{plate_dict[well][0]} Y{plate_dict[well][1]} Z{plate_dict[well][2]}\n"
+                #self.axes.write(gcode_command.encode())
+                print("At position", position)
+
+                time.sleep(4)
+                
+                Camera.acquire_image(camera)
+                
+                time.sleep(3)
+                
         return True
->>>>>>> refactored
             
 
 def main():
@@ -228,8 +223,10 @@ def main():
     machine.position = [0,0,0]
     plate_num = machine.wellplate(plate_list)
     while True:
-        print(machine.position)
-        print("Enter a to move to a well. Enter b to jog the axes. Enter p to take a picture. To change the well plate number, enter c.")
+        print("\nCurrent position: ", machine.position)
+        print("Enter a to move to a well. Enter b to jog the axes.")
+        print("Enter p to take a picture.")
+        print("To change the well plate number, enter c.")
         main_input = input(">> ")
         if main_input == "a":
             machine.position = machine.well_move(plate_num, machine.position)
@@ -239,11 +236,8 @@ def main():
             camera.acquire_image()
         elif main_input == "c":
             plate_num = machine.wellplate(plate_list)
-<<<<<<< HEAD
-=======
         elif main_input == "z":
-            machine.night_cycle(plate_96)
->>>>>>> refactored
+            machine.night_cycle(plate_96, camera, machine.position)
         else:
             print("Invalid input. Please try again.")
 
