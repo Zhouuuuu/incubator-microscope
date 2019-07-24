@@ -7,13 +7,30 @@ from pypylon import genicam
 import os
 import numpy as np
 import cv2
+from collections import OrderedDict
 
+<<<<<<< HEAD
 plate_96 = {
     "Home": [0,0,0],
     "A1": [5,5,0],
     "B1": [10,10,0],
     "C1": [5,5,-5]
     }
+=======
+plate_96 = OrderedDict([
+    ("Home", [0,0,0]),
+    ("A1", [5,5,0]),
+    ("B1", [10,10,0]),
+    ("C1", [5,5,-5])
+    ])
+
+plate_list = {"6": "plate_6",
+              "12": "plate_12",
+              "24": "plate_24",
+              "48": "plate_48",
+              "96": plate_96
+              }
+>>>>>>> refactored
 
 plate_list = {"6": "plate_6",
               "12": "plate_12",
@@ -79,11 +96,22 @@ class Camera:
         self.camera.Close()
         return True
     
+<<<<<<< HEAD
     def night_cycle(self, well_num):
+=======
+    def night_cycle(self, plate_dict):
+>>>>>>> refactored
         #home machine
         #how many wells
-        #how long
-        pass
+        start_time = datetime.datetime.now()
+        current_time = datetime.datetime.now()
+        time_change = current_time - start_time
+        while time_change.seconds < 60:
+            for well in plate_dict:
+                gcode_command = f"G0 X{well[0]} Y{well[1]} Z{well[2]}\n"
+                self.axes.write(gcode_command.encode())
+                time.sleep(3)
+        return True
 
 class CNC:
     def __init__(self):
@@ -104,7 +132,11 @@ class CNC:
         while True:
             print("Number of wells in well plate?")
             well_num = input(">> ")
+<<<<<<< HEAD
             if num_wells in plate_list:
+=======
+            if well_num in plate_list:
+>>>>>>> refactored
                 well_num = plate_list[well_num]
                 return well_num
             print("Please enter a valid number (6, 12, 24, 48, 96).")
@@ -170,6 +202,24 @@ class CNC:
             print(error)
             print("Input must be number greater than zero.")
             return position
+<<<<<<< HEAD
+=======
+
+    def night_cycle(self, plate_dict):
+        #home machine
+        start_time = datetime.datetime.now()
+        current_time = datetime.datetime.now()
+        time_change = current_time - start_time
+        while time_change.seconds < 20:
+            for well in plate_dict:
+                gcode_command = f"G0 X{plate_dict[well][0]} Y{plate_dict[well][1]} Z{plate_dict[well][2]}\n"
+                self.axes.write(gcode_command.encode())
+                time.sleep(2)
+                current_time = datetime.datetime.now()
+                time_change = current_time - start_time
+                print(time_change.seconds)
+        return True
+>>>>>>> refactored
             
 
 def main():
@@ -189,6 +239,11 @@ def main():
             camera.acquire_image()
         elif main_input == "c":
             plate_num = machine.wellplate(plate_list)
+<<<<<<< HEAD
+=======
+        elif main_input == "z":
+            machine.night_cycle(plate_96)
+>>>>>>> refactored
         else:
             print("Invalid input. Please try again.")
 
