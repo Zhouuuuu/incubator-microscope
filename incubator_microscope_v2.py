@@ -9,26 +9,12 @@ import numpy as np
 import cv2
 from collections import OrderedDict
 
-#plate_96 = {
-#    "Home": [0,0,0],
-#    "A1": [5,5,0],
-#    "B1": [10,10,0],
-#    "C1": [5,5,-5]
-#    }
-
 plate_96 = OrderedDict([
     #("Home", [0,0,0]),
     ("A1", [5,5,0]),
     ("B1", [10,10,0]),
     ("C1", [15,15,0])
     ])
-
-plate_list = {"6": "plate_6",
-              "12": "plate_12",
-              "24": "plate_24",
-              "48": "plate_48",
-              "96": plate_96
-              }
 
 plate_list = {"6": "plate_6",
               "12": "plate_12",
@@ -47,7 +33,7 @@ jog_dict = {
     }
 [xMin, xMax] = [0.0, 30.0]
 [yMin, yMax] = [0.0, 30.0]
-[zMin, zMax] = [-15.0, 0.0]
+[zMin, zMax] = [-15.0, 30.0]
 
 class Camera:
     def __init__(self): #initialize instance of Camera
@@ -142,47 +128,48 @@ class CNC(Camera):
         return position
     
     def jog(self, jog_dict, position, xMin, xMax, yMin, yMax, zMin, zMax):
-        jog_increment = input("Enter a jog increment (mm): ")
-        try:
-            jog_increment = float(jog_increment)
-            if jog_increment > 0:
-                jog_dict["w"] = [0, jog_increment, 0]
-                jog_dict["a"] = [-jog_increment, 0, 0]
-                jog_dict["s"] = [0, -jog_increment, 0]
-                jog_dict["d"] = [jog_increment, 0, 0]
-                jog_dict["q"] = [0, 0, -jog_increment]
-                jog_dict["e"] = [0, 0, jog_increment]
-                while True:
-                    print("\nUse the 'wasd' keys to jog the X and Y axes.")
-                    print("Use the q and e keys to jog the Z axis.")
-                    print("Type 'esc' to exit. Type 'back' to change the jog increment.")
-                    print("Current position:", position)
-                    jog_input = input(">> ")
-                    if jog_input in jog_dict:
-                        x = round(position[0] + jog_dict[jog_input][0], 5)
-                        y = round(position[1] + jog_dict[jog_input][1], 5)
-                        z = round(position[2] + jog_dict[jog_input][2], 5)
-                        if x < xMin or x > xMax or y < yMin or y > yMax or z < zMin or z > zMax:
-                            print("Beyond axis limit.")
+        while True:
+            jog_increment = input("Enter a jog increment (mm): ")
+            try:
+                jog_increment = float(jog_increment)
+                if jog_increment > 0:
+                    jog_dict["w"] = [0, jog_increment, 0]
+                    jog_dict["a"] = [-jog_increment, 0, 0]
+                    jog_dict["s"] = [0, -jog_increment, 0]
+                    jog_dict["d"] = [jog_increment, 0, 0]
+                    jog_dict["q"] = [0, 0, -jog_increment]
+                    jog_dict["e"] = [0, 0, jog_increment]
+                    while True:
+                        print("\nUse the 'wasd' keys to jog the X and Y axes.")
+                        print("Use the q and e keys to jog the Z axis.")
+                        print("Type 'esc' to exit. Type 'back' to change the jog increment.")
+                        print("Current position:", position)
+                        jog_input = input(">> ")
+                        if jog_input in jog_dict:
+                            x = round(position[0] + jog_dict[jog_input][0], 5)
+                            y = round(position[1] + jog_dict[jog_input][1], 5)
+                            z = round(position[2] + jog_dict[jog_input][2], 5)
+                            if x < xMin or x > xMax or y < yMin or y > yMax or z < zMin or z > zMax:
+                                print("Beyond axis limit.")
+                            else:
+                                jog_command = f"G91 X{jog_dict[jog_input][0]} Y{jog_dict[jog_input][1]} Z{jog_dict[jog_input][2]}\n"
+                                self.axes.write(jog_command.encode())
+                                position = [x,y,z]
+                        elif jog_input == "back":
+                            break
+                        elif jog_input == "esc":
+                            return position
                         else:
-                            jog_command = f"G91 X{jog_dict[jog_input][0]} Y{jog_dict[jog_input][1]} Z{jog_dict[jog_input][2]}\n"
-                            self.axes.write(jog_command.encode())
-                            position = [x,y,z]
-                    elif jog_input == "back":
-                        break
-                    elif jog_input == "esc":
-                        return position
-                    else:
-                        print("Invalid input. Please try again.")
+                            print("Invalid input. Please try again.")
                 else:
                     print("Input must be a number greater than zero")
-        except ValueError as error:
-            print("\n",error)
-            print("Input must be number greater than zero.")
-            return position
+            except ValueError as error:
+                print("\n",error)
+                print("Input must be number greater than zero.")
+                return position
 
     def night_cycle(self, plate_dict, camera, position):
-        #home machine
+        #self.axes.write("$h\n".encode())
         start_time = datetime.datetime.now()
         current_time = datetime.datetime.now()
         time_change = current_time - start_time
