@@ -14,7 +14,7 @@ plate_96 = OrderedDict([
     ("A1", [5,0,0]),
     ("B1", [5,5,0]),
     ("C1", [0,5,0])
-    ("D1", [0,0,0])
+    #("D1", [0,0,0])
     ])
 
 plate_list = {"6": "plate_6",
@@ -32,7 +32,7 @@ jog_dict = {
     "q": None,
     "e": None
     }
-[xMin, xMax] = [0.0, 30.0]
+[xMin, xMax] = [0.0,30.0]
 [yMin, yMax] = [0.0, 30.0]
 [zMin, zMax] = [-15.0, 30.0]
 
@@ -93,25 +93,38 @@ class CNC(Camera):
         for i in range(7):
             grbl_out = self.axes.readline()
             time.sleep(1)
-        while True:
-            time.sleep(2)
+        while grbl_out != b'ok\r\n':
             grbl_out = self.axes.readline()
-            if grbl_out == b'ok\r\n':
-                break
+            print("Homing...")
+            time.sleep(1)
         print("Device initialized.")
 
-    def alarm_read(self):
+    def alarm_read(self): #to be implemented later
+        alarm = b'ALARM:1\r\n'
         grbl_output = self.axes.readline()
-        return grbl_output
+        if grbl_output == alarm:
+            return grbl_output
+        return True
 
-    def home_device(self, position):
-        print("Homing device...")
-        print("Device asleep...")
+    def home_cycle(self, position):
+        count = 0
+        print("Homing cycle in progress...")
         self.axes.write("$h\n".encode())
-        time.sleep(20)
-        print("Done homing!")
+        grbl_out = self.axes.readline()
+        #for i in range(7):
+        #    grbl_out = self.axes.readline()
+        #    time.sleep(1)
+        #    print(grbl_out)
+        while grbl_out != b'ok\r\n':
+            grbl_out = self.axes.readline()
+            print("Homing...",count)
+            time.sleep(1)
+            count = count + 1
+        print("Homing cycle completed.")
         position = [0,0,0]
         return position
+
+        print("Done homing!")
 
     def wellplate(self, plate_list):
         while True:
@@ -136,10 +149,12 @@ class CNC(Camera):
             z_move = str(plate[well][2] - position[2])
             gcode_command = f"G91 X{x_move} Y{y_move} Z{z_move}\n"
             self.axes.write(gcode_command.encode())
+            grbl_out = self.axes.readline()
+            print(grbl_out)
             position = plate[well]
             return position
         elif well == "esc":
-            print("Exited")
+            print("Exited.")
         else:
             print("Invalid input. Please try again.")
         return position
@@ -186,16 +201,9 @@ class CNC(Camera):
                 return position
 
     def night_cycle(self, plate_dict, camera, position):
-        self.axes.write("$h\n".encode())
-        for i in range(6):
-            grbl_out = self.axes.readline()
-            print(grbl_out)
-            time.sleep(1)
-        while grbl_out != b'ok\r\n':
-            grbl_out = self.axes.readline()
-            print("Homing...")
-            time.sleep(1)
-        print("Device homed.")
+
+        while self.home_cycle(position):
+            break
         time.sleep(1)
         print("Begin cycle.")
         position = [0,0,0]
@@ -205,13 +213,11 @@ class CNC(Camera):
         
         while time_change.seconds < 30:
             for well in plate_dict:
-                
+
+                grbl_out = self.axes.readline()
                 current_time = datetime.datetime.now()
                 time_change = current_time - start_time
                 print(time_change.seconds)
-
-                print(type(plate_dict[well][0]))
-                print(type(position[0]))
 
                 x_move = str(plate_dict[well][0] - position[0])
                 y_move = str(plate_dict[well][1] - position[1])
@@ -219,14 +225,14 @@ class CNC(Camera):
                 gcode_command = f"G91 X{x_move} Y{y_move} Z{z_move}\n"
                 self.axes.write(gcode_command.encode())
                 position = plate_dict[well]
-                
+
+                time.sleep(2.5)
+                    
                 print("At position", position)
 
-                time.sleep(4)
-                
                 Camera.acquire_image(camera)
                 
-                time.sleep(3)
+                time.sleep(2.5)
                 
         return True
             
@@ -236,10 +242,8 @@ def main():
     machine = CNC()
     machine.position = [0,0,0]
     plate_num = machine.wellplate(plate_list)
-    #ser_output = machine.alarm_read()
+    #ser_output = machine.axes.readline()
     while True: #ser_output != b'ALARM:1\r\n' or ser_output != b'[MSG:Reset to continue]\r\n' or ser_output != b'':
-        ##ser_output = machine.alarm_read()
-        #print(ser_output)
         print("\nCurrent position: ", machine.position)
         print("Enter a to move to a well. Enter b to jog the axes.")
         print("Enter p to take a picture.")
@@ -249,6 +253,8 @@ def main():
         main_input = input(">> ")
         if main_input == "a":
             machine.position = machine.well_move(plate_num, machine.position)
+            ser_output = machine.axes.readline()
+            print(ser_output)
         elif main_input == "b":
             machine.position = machine.jog(jog_dict, machine.position, xMin, xMax, yMin, yMax, zMin, zMax)
         elif main_input == "p":
@@ -258,9 +264,10 @@ def main():
         elif main_input == "z":
             machine.night_cycle(plate_96, camera, machine.position)
         elif main_input == "h":
-            machine.home_device(machine.position)
+            machine.home_cycle(machine.position)
         else:
             print("Invalid input. Please try again.")
+    print("ALARM(1): Reset to continue.")
     return False
     
 if __name__ == "__main__":
