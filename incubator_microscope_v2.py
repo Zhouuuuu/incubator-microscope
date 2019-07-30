@@ -63,6 +63,7 @@ class Camera:
             print("Image successfully saved as", filename)
         except Exception as error:
             print("Error saving image:", error)
+            return False
         return True
 
     def acquire_image(self):
