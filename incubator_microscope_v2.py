@@ -108,6 +108,8 @@ class CNC(Camera):
 
     def home_cycle(self, position):
         count = 0
+        self.axes.flushInput()
+        self.axes.flushOutput()
         print("Homing cycle in progress...")
         self.axes.write("$h\n".encode())
         grbl_out = self.axes.readline()
@@ -213,8 +215,7 @@ class CNC(Camera):
         
         while time_change.seconds < 30:
             for well in plate_dict:
-
-                grbl_out = self.axes.readline()
+                
                 current_time = datetime.datetime.now()
                 time_change = current_time - start_time
                 print(time_change.seconds)
