@@ -222,7 +222,7 @@ class CNC(Camera):
                 self.axes.write(gcode_command.encode())
                 position = plate_dict[well]
 
-                time.sleep(2)
+                time.sleep(2) #implement detection of destination arrival
                     
                 print("At position", position)
 
