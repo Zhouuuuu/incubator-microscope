@@ -11,9 +11,10 @@ from collections import OrderedDict
 
 plate_96 = OrderedDict([
     #("Home", [0,0,0]),
-    ("A1", [5,5,0]),
-    ("B1", [10,10,0]),
-    ("C1", [15,15,0])
+    ("A1", [5,0,0]),
+    ("B1", [5,5,0]),
+    ("C1", [0,5,0])
+    ("D1", [0,0,0])
     ])
 
 plate_list = {"6": "plate_6",
@@ -80,21 +81,37 @@ class Camera:
         self.camera.Close()
         return True
 
-
 class CNC(Camera):
     def __init__(self):
         self.axes = serial.Serial("COM4", baudrate = 115200, timeout = 1)
         #self.LED = serial.Serial #initialize LED
         time.sleep(2)
         print("Homing device...")
-        #self.axes.write("$22 = 1\n".encode())
+        self.axes.write("$22 = 1\n".encode())
         self.axes.write("$x\n".encode())
-        #self.axes.write("$h\n".encode())
-        print("CNC initialized.")
+        self.axes.write("$h\n".encode())
+        for i in range(7):
+            grbl_out = self.axes.readline()
+            time.sleep(1)
+        while True:
+            time.sleep(2)
+            grbl_out = self.axes.readline()
+            if grbl_out == b'ok\r\n':
+                break
+        print("Device initialized.")
 
-    #def home_device(self):
-    #    self.axes.write("$h\n".encode())
-    #    return True
+    def alarm_read(self):
+        grbl_output = self.axes.readline()
+        return grbl_output
+
+    def home_device(self, position):
+        print("Homing device...")
+        print("Device asleep...")
+        self.axes.write("$h\n".encode())
+        time.sleep(20)
+        print("Done homing!")
+        position = [0,0,0]
+        return position
 
     def wellplate(self, plate_list):
         while True:
@@ -169,10 +186,23 @@ class CNC(Camera):
                 return position
 
     def night_cycle(self, plate_dict, camera, position):
-        #self.axes.write("$h\n".encode())
+        self.axes.write("$h\n".encode())
+        for i in range(6):
+            grbl_out = self.axes.readline()
+            print(grbl_out)
+            time.sleep(1)
+        while grbl_out != b'ok\r\n':
+            grbl_out = self.axes.readline()
+            print("Homing...")
+            time.sleep(1)
+        print("Device homed.")
+        time.sleep(1)
+        print("Begin cycle.")
+        position = [0,0,0]
         start_time = datetime.datetime.now()
         current_time = datetime.datetime.now()
         time_change = current_time - start_time
+        
         while time_change.seconds < 30:
             for well in plate_dict:
                 
@@ -189,10 +219,7 @@ class CNC(Camera):
                 gcode_command = f"G91 X{x_move} Y{y_move} Z{z_move}\n"
                 self.axes.write(gcode_command.encode())
                 position = plate_dict[well]
-
-               
-                #gcode_command = f"G0 X{plate_dict[well][0]} Y{plate_dict[well][1]} Z{plate_dict[well][2]}\n"
-                #self.axes.write(gcode_command.encode())
+                
                 print("At position", position)
 
                 time.sleep(4)
@@ -209,10 +236,15 @@ def main():
     machine = CNC()
     machine.position = [0,0,0]
     plate_num = machine.wellplate(plate_list)
-    while True:
+    #ser_output = machine.alarm_read()
+    while True: #ser_output != b'ALARM:1\r\n' or ser_output != b'[MSG:Reset to continue]\r\n' or ser_output != b'':
+        ##ser_output = machine.alarm_read()
+        #print(ser_output)
         print("\nCurrent position: ", machine.position)
         print("Enter a to move to a well. Enter b to jog the axes.")
         print("Enter p to take a picture.")
+        print("Enter z for cycle")
+        print("Enter h to home the machine")
         print("To change the well plate number, enter c.")
         main_input = input(">> ")
         if main_input == "a":
@@ -225,8 +257,11 @@ def main():
             plate_num = machine.wellplate(plate_list)
         elif main_input == "z":
             machine.night_cycle(plate_96, camera, machine.position)
+        elif main_input == "h":
+            machine.home_device(machine.position)
         else:
             print("Invalid input. Please try again.")
-
+    return False
+    
 if __name__ == "__main__":
     main()
