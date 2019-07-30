@@ -11,10 +11,10 @@ from collections import OrderedDict
 
 plate_96 = OrderedDict([
     #("Home", [0,0,0]),
-    ("A1", [5,0,0]),
-    ("B1", [5,5,0]),
-    ("C1", [0,5,0])
-    #("D1", [0,0,0])
+    ("A1", [10,0,0]),
+    ("B1", [10,10,0]),
+    ("C1", [0,10,0]),
+    ("D1", [0,0,0])
     ])
 
 plate_list = {"6": "plate_6",
@@ -34,7 +34,7 @@ jog_dict = {
     }
 [xMin, xMax] = [0.0,30.0]
 [yMin, yMax] = [0.0, 30.0]
-[zMin, zMax] = [-15.0, 30.0]
+[zMin, zMax] = [-30.0, 0.0]
 
 class Camera:
     def __init__(self): #initialize instance of Camera
@@ -89,22 +89,25 @@ class CNC(Camera):
         print("Homing device...")
         self.axes.write("$22 = 1\n".encode())
         self.axes.write("$x\n".encode())
-        self.axes.write("$h\n".encode())
-        for i in range(7):
-            grbl_out = self.axes.readline()
-            time.sleep(1)
-        while grbl_out != b'ok\r\n':
-            grbl_out = self.axes.readline()
-            print("Homing...")
-            time.sleep(1)
+        #self.axes.write("$h\n".encode())
+        #self.axes.flushInput()
+        #self.axes.flushOutput()
+        #for i in range(7):
+        #    grbl_out = self.axes.readline()
+        #    time.sleep(1)
+        #while grbl_out != b'ok\r\n':
+        #    grbl_out = self.axes.readline()
+        #    print("Homing...")
+        #    time.sleep(1)
         print("Device initialized.")
 
     def alarm_read(self): #to be implemented later
-        alarm = b'ALARM:1\r\n'
-        grbl_output = self.axes.readline()
-        if grbl_output == alarm:
-            return grbl_output
-        return True
+        #alarm = b'ALARM:1\r\n'
+        #grbl_output = self.axes.readline()
+        #if grbl_output == alarm:
+        #    return grbl_output
+        #return True
+        pass
 
     def home_cycle(self, position):
         count = 0
@@ -113,10 +116,6 @@ class CNC(Camera):
         print("Homing cycle in progress...")
         self.axes.write("$h\n".encode())
         grbl_out = self.axes.readline()
-        #for i in range(7):
-        #    grbl_out = self.axes.readline()
-        #    time.sleep(1)
-        #    print(grbl_out)
         while grbl_out != b'ok\r\n':
             grbl_out = self.axes.readline()
             print("Homing...",count)
@@ -209,16 +208,12 @@ class CNC(Camera):
         time.sleep(1)
         print("Begin cycle.")
         position = [0,0,0]
-        start_time = datetime.datetime.now()
-        current_time = datetime.datetime.now()
-        time_change = current_time - start_time
+        start = datetime.datetime.now()
+        current = datetime.datetime.now()
+        diff = (current - start).seconds
         
-        while time_change.seconds < 30:
-            for well in plate_dict:
-                
-                current_time = datetime.datetime.now()
-                time_change = current_time - start_time
-                print(time_change.seconds)
+        while diff < 30:
+            for well in plate_dict: #program will always finish last cycle through dictionary even if diff>30
 
                 x_move = str(plate_dict[well][0] - position[0])
                 y_move = str(plate_dict[well][1] - position[1])
@@ -227,17 +222,20 @@ class CNC(Camera):
                 self.axes.write(gcode_command.encode())
                 position = plate_dict[well]
 
-                time.sleep(2.5)
+                time.sleep(2)
                     
                 print("At position", position)
 
                 Camera.acquire_image(camera)
                 
-                time.sleep(2.5)
+                time.sleep(1.5)
+
+                current = datetime.datetime.now()
+                diff = (current-start).seconds
+                print(diff)
                 
         return True
             
-
 def main():
     camera = Camera()    
     machine = CNC()
