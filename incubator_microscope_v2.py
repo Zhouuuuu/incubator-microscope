@@ -8,14 +8,15 @@ import os
 import numpy as np
 import cv2
 from collections import OrderedDict
+from plate_dict import plate_96
 
-plate_96 = OrderedDict([
-    #("Home", [0,0,0]),
-    ("A1", [10,0,0]),
-    ("B1", [10,10,0]),
-    ("C1", [0,10,0]),
-    ("D1", [0,0,0])
-    ])
+##plate_96 = OrderedDict([
+##    #("Home", [0,0,0]),
+##    ("A1", [10,0,0]),
+##    ("B1", [10,10,0]),
+##    ("C1", [0,10,0]),
+##    ("D1", [0,0,0])
+##    ])
 
 plate_list = {"6": "plate_6",
               "12": "plate_12",
@@ -213,7 +214,7 @@ class CNC(Camera):
         current = datetime.datetime.now()
         diff = (current - start).seconds
         
-        while diff < 30:
+        while diff < 60:
             for well in plate_dict: #program will always finish last cycle through dictionary even if diff>30
 
                 x_move = str(plate_dict[well][0] - position[0])
@@ -229,7 +230,7 @@ class CNC(Camera):
 
                 Camera.acquire_image(camera)
                 
-                time.sleep(1.5)
+                time.sleep(2)
 
                 current = datetime.datetime.now()
                 diff = (current-start).seconds
