@@ -1,4 +1,5 @@
 import serial
+import sys
 import time
 import datetime
 import pypylon
@@ -39,6 +40,7 @@ jog_dict = {
 
 class Camera:
     def __init__(self): #initialize instance of Camera
+        
         self.camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice())
         self.camera.Open()
         print("Using device:", self.camera.GetDeviceInfo().GetModelName())
@@ -83,6 +85,27 @@ class Camera:
         self.camera.Close()
         return True
 
+    def show_video(self, imageWindow):
+        if not self.camera.IsGrabbing():
+            self.camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+
+        while self.camera.IsGrabbing():
+            grabResult = self.camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+            if grabResult.GrabSucceeded():
+                imageWindow.SetImage(grabResult)
+                imageWindow.Show()
+                return True
+            else:
+                print("Error: ", grabResult.ErrorCode, grabResult.ErrorDescription)
+                return False
+            grabResult.Release()
+            time.sleep(0.05)
+
+            if not imageWindow.IsVisible():
+                self.camera.StopGrabbing()
+
+        
+
 class CNC(Camera):
     def __init__(self):
         self.axes = serial.Serial("COM4", baudrate = 115200, timeout = 1)
@@ -91,16 +114,16 @@ class CNC(Camera):
         print("Homing device...")
         self.axes.write("$22 = 1\n".encode())
         self.axes.write("$x\n".encode())
-        #self.axes.write("$h\n".encode())
-        #self.axes.flushInput()
-        #self.axes.flushOutput()
-        #for i in range(7):
-        #    grbl_out = self.axes.readline()
-        #    time.sleep(1)
-        #while grbl_out != b'ok\r\n':
-        #    grbl_out = self.axes.readline()
-        #    print("Homing...")
-        #    time.sleep(1)
+        self.axes.write("$h\n".encode())
+        self.axes.flushInput()
+        self.axes.flushOutput()
+        for i in range(7):
+            grbl_out = self.axes.readline()
+            time.sleep(1)
+        while grbl_out != b'ok\r\n':
+            grbl_out = self.axes.readline()
+            print("Homing...")
+            time.sleep(1)
         print("Device initialized.")
 
     def alarm_read(self): #to be implemented later
@@ -242,15 +265,20 @@ def main():
     camera = Camera()    
     machine = CNC()
     machine.position = [0,0,0]
+    imageWindow = pylon.PylonImageWindow()
+    imageWindow.Create(1)
     plate_num = machine.wellplate(plate_list)
+    
+    
     #ser_output = machine.axes.readline()
-    while True: #ser_output != b'ALARM:1\r\n' or ser_output != b'[MSG:Reset to continue]\r\n' or ser_output != b'':
+    while camera.show_video(imageWindow): #ser_output != b'ALARM:1\r\n' or ser_output != b'[MSG:Reset to continue]\r\n' or ser_output != b'':
         print("\nCurrent position: ", machine.position)
         print("Enter a to move to a well. Enter b to jog the axes.")
         print("Enter p to take a picture.")
         print("Enter z for cycle")
         print("Enter h to home the machine")
         print("To change the well plate number, enter c.")
+
         main_input = input(">> ")
         if main_input == "a":
             machine.position = machine.well_move(plate_num, machine.position)
@@ -266,6 +294,9 @@ def main():
             machine.night_cycle(plate_96, camera, machine.position)
         elif main_input == "h":
             machine.home_cycle(machine.position)
+        elif main_input == "exit":
+            imageWindow.Close()
+            sys.exit()
         else:
             print("Invalid input. Please try again.")
     print("ALARM(1): Reset to continue.")
