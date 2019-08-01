@@ -34,9 +34,10 @@ jog_dict = {
     "q": None,
     "e": None
     }
+
 [xMin, xMax] = [0.0,30.0]
 [yMin, yMax] = [0.0, 30.0]
-[zMin, zMax] = [-30.0, 0.0]
+[zMin, zMax] = [-45.0, 0.0]
 
 class Camera:
     def __init__(self): #initialize instance of Camera
@@ -47,6 +48,8 @@ class Camera:
         self.converter = pylon.ImageFormatConverter()
         self.converter.OutputPixelFormat = pylon.PixelType_BGR8packed
         self.converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
+        self.imageWindow = pylon.PylonImageWindow()
+        self.imageWindow.Create(1)
         os.chdir("C:\\Users\\Wyss User\\Pictures\\Basler Test")
         print("Current working directory (save location):", os.getcwd())
         print("Camera initialized.")
@@ -71,7 +74,8 @@ class Camera:
 
     def acquire_image(self):
         print("Grabbing image...")
-        self.camera.StartGrabbing(1)
+        if not self.camera.IsGrabbing():
+            self.camera.StartGrabbing(1)
         while self.camera.IsGrabbing():
             grabResult = self.camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
             if grabResult.GrabSucceeded():
@@ -85,15 +89,16 @@ class Camera:
         self.camera.Close()
         return True
 
-    def show_video(self, imageWindow):
+    def show_video(self):
         if not self.camera.IsGrabbing():
             self.camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
 
         while self.camera.IsGrabbing():
             grabResult = self.camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
             if grabResult.GrabSucceeded():
-                imageWindow.SetImage(grabResult)
-                imageWindow.Show()
+                self.imageWindow.SetImage(grabResult)
+                if not self.imageWindow.IsVisible():
+                    self.imageWindow.Show()
                 return True
             else:
                 print("Error: ", grabResult.ErrorCode, grabResult.ErrorDescription)
@@ -114,16 +119,16 @@ class CNC(Camera):
         print("Homing device...")
         self.axes.write("$22 = 1\n".encode())
         self.axes.write("$x\n".encode())
-        self.axes.write("$h\n".encode())
-        self.axes.flushInput()
-        self.axes.flushOutput()
-        for i in range(7):
-            grbl_out = self.axes.readline()
-            time.sleep(1)
-        while grbl_out != b'ok\r\n':
-            grbl_out = self.axes.readline()
-            print("Homing...")
-            time.sleep(1)
+##        self.axes.write("$h\n".encode())
+##        self.axes.flushInput()
+##        self.axes.flushOutput()
+##        for i in range(7):
+##            grbl_out = self.axes.readline()
+##            time.sleep(1)
+##        while grbl_out != b'ok\r\n':
+##            grbl_out = self.axes.readline()
+##            print("Homing...")
+##            time.sleep(1)
         print("Device initialized.")
 
     def alarm_read(self): #to be implemented later
@@ -133,6 +138,11 @@ class CNC(Camera):
         #    return grbl_output
         #return True
         pass
+
+    def configure_settings(self):
+        setting = input("\nEnter grbl setting to be changed: ")
+        setting = setting + "\n"
+        return setting
 
     def home_cycle(self, position):
         count = 0
@@ -149,8 +159,6 @@ class CNC(Camera):
         print("Homing cycle completed.")
         position = [0,0,0]
         return position
-
-        print("Done homing!")
 
     def wellplate(self, plate_list):
         while True:
@@ -175,8 +183,6 @@ class CNC(Camera):
             z_move = str(plate[well][2] - position[2])
             gcode_command = f"G91 X{x_move} Y{y_move} Z{z_move}\n"
             self.axes.write(gcode_command.encode())
-            grbl_out = self.axes.readline()
-            print(grbl_out)
             position = plate[well]
             return position
         elif well == "esc":
@@ -265,37 +271,40 @@ def main():
     camera = Camera()    
     machine = CNC()
     machine.position = [0,0,0]
-    imageWindow = pylon.PylonImageWindow()
-    imageWindow.Create(1)
+    #imageWindow = pylon.PylonImageWindow()
+    #imageWindow.Create(1)
     plate_num = machine.wellplate(plate_list)
     
     
     #ser_output = machine.axes.readline()
-    while camera.show_video(imageWindow): #ser_output != b'ALARM:1\r\n' or ser_output != b'[MSG:Reset to continue]\r\n' or ser_output != b'':
+    while camera.show_video(): #ser_output != b'ALARM:1\r\n' or ser_output != b'[MSG:Reset to continue]\r\n' or ser_output != b'':
         print("\nCurrent position: ", machine.position)
         print("Enter a to move to a well. Enter b to jog the axes.")
         print("Enter p to take a picture.")
         print("Enter z for cycle")
+        print("Enter c for custom grbl command.")
         print("Enter h to home the machine")
-        print("To change the well plate number, enter c.")
+        print("To change the well plate number, enter n.")
+        print("To stop the program, enter 'exit'.")
 
         main_input = input(">> ")
         if main_input == "a":
             machine.position = machine.well_move(plate_num, machine.position)
-            ser_output = machine.axes.readline()
-            print(ser_output)
         elif main_input == "b":
             machine.position = machine.jog(jog_dict, machine.position, xMin, xMax, yMin, yMax, zMin, zMax)
         elif main_input == "p":
             camera.acquire_image()
-        elif main_input == "c":
+        elif main_input == "n":
             plate_num = machine.wellplate(plate_list)
         elif main_input == "z":
             machine.night_cycle(plate_96, camera, machine.position)
         elif main_input == "h":
             machine.home_cycle(machine.position)
+        elif main_input == "c":
+            setting = machine.configure_settings()
+            machine.axes.write(setting.encode())
         elif main_input == "exit":
-            imageWindow.Close()
+            camera.imageWindow.Close()
             sys.exit()
         else:
             print("Invalid input. Please try again.")
