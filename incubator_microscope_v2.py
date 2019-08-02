@@ -86,7 +86,7 @@ class Camera:
                 print("Error: ", grabResult.ErrorCode, grabResult.ErrorDescription)
                 return False
         self.camera.StopGrabbing()
-        self.camera.Close()
+        #self.camera.Close()
         return True
 
     def show_video(self):
@@ -99,15 +99,11 @@ class Camera:
                 self.imageWindow.SetImage(grabResult)
                 if not self.imageWindow.IsVisible():
                     self.imageWindow.Show()
-                return True
             else:
                 print("Error: ", grabResult.ErrorCode, grabResult.ErrorDescription)
                 return False
             grabResult.Release()
             time.sleep(0.05)
-
-            if not imageWindow.IsVisible():
-                self.camera.StopGrabbing()
 
         
 
@@ -119,16 +115,16 @@ class CNC(Camera):
         print("Homing device...")
         self.axes.write("$22 = 1\n".encode())
         self.axes.write("$x\n".encode())
-##        self.axes.write("$h\n".encode())
-##        self.axes.flushInput()
-##        self.axes.flushOutput()
-##        for i in range(7):
-##            grbl_out = self.axes.readline()
-##            time.sleep(1)
-##        while grbl_out != b'ok\r\n':
-##            grbl_out = self.axes.readline()
-##            print("Homing...")
-##            time.sleep(1)
+        self.axes.write("$h\n".encode())
+        self.axes.flushInput()
+        self.axes.flushOutput()
+        for i in range(7):
+            grbl_out = self.axes.readline()
+            time.sleep(1)
+        while grbl_out != b'ok\r\n':
+            grbl_out = self.axes.readline()
+            print("Homing...")
+            time.sleep(1)
         print("Device initialized.")
 
     def alarm_read(self): #to be implemented later
@@ -234,9 +230,11 @@ class CNC(Camera):
 
     def night_cycle(self, plate_dict, camera, position):
 
-        while self.home_cycle(position):
-            break
+        #while self.home_cycle(position):
+        #    break
         time.sleep(1)
+        self.axes.flushInput()
+        self.axes.flushOutput()
         print("Begin cycle.")
         position = [0,0,0]
         start = datetime.datetime.now()
@@ -251,33 +249,62 @@ class CNC(Camera):
                 z_move = str(plate_dict[well][2] - position[2])
                 gcode_command = f"G91 X{x_move} Y{y_move} Z{z_move}\n"
                 self.axes.write(gcode_command.encode())
+                
                 position = plate_dict[well]
-
-                time.sleep(2) #implement detection of destination arrival
+                time.sleep(0.2)
+                self.axes.flushInput()
+                self.axes.write("?\n".encode())
+                grbl_out = self.axes.readline()
+                print(grbl_out)
+                time.sleep(0.2)
+                
+                while b'Run' in grbl_out:
+                    self.axes.flushInput()
+                    self.axes.write("?\n".encode())
+                    grbl_out = self.axes.readline()
+                    print(grbl_out)
+                    time.sleep(0.2)
                     
                 print("At position", position)
-
+                time.sleep(0.5)
                 Camera.acquire_image(camera)
-                
-                time.sleep(2)
-
+                time.sleep(1)
                 current = datetime.datetime.now()
                 diff = (current-start).seconds
                 print(diff)
                 
         return True
+
+class LED():
+    def __init__(self):
+        self.led = serial.Serial("COM7", baudrate = 9600, timeout = 1)
+        self.led.flushInput()
+        for i in range(4):
+            self.led.write(b"I\r\n")
+            time.sleep(0.25)
+            self.led.write(b"O\r\sn")
+            time.sleep(0.25)
+        print("LED initialized.")
+
+    def on(self):
+        self.led.write(b"I\r\n")
+        return True
+    def off(self):
+        self.led.write(b"O\r\n")
+        return True
+    
             
 def main():
     camera = Camera()    
     machine = CNC()
+    led = LED()
     machine.position = [0,0,0]
-    #imageWindow = pylon.PylonImageWindow()
-    #imageWindow.Create(1)
     plate_num = machine.wellplate(plate_list)
     
     
     #ser_output = machine.axes.readline()
-    while camera.show_video(): #ser_output != b'ALARM:1\r\n' or ser_output != b'[MSG:Reset to continue]\r\n' or ser_output != b'':
+    while True: #ser_output != b'ALARM:1\r\n' or ser_output != b'[MSG:Reset to continue]\r\n' or ser_output != b'':
+        camera.show_video()
         print("\nCurrent position: ", machine.position)
         print("Enter a to move to a well. Enter b to jog the axes.")
         print("Enter p to take a picture.")
@@ -303,6 +330,10 @@ def main():
         elif main_input == "c":
             setting = machine.configure_settings()
             machine.axes.write(setting.encode())
+        elif main_input == "I":
+            led.on()
+        elif main_input == "O":
+            led.off()
         elif main_input == "exit":
             camera.imageWindow.Close()
             sys.exit()
