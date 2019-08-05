@@ -11,6 +11,7 @@ import cv2
 from collections import OrderedDict
 from plate_dict import plate_96
 
+
 ##plate_96 = OrderedDict([
 ##    #("Home", [0,0,0]),
 ##    ("A1", [10,0,0]),
@@ -76,6 +77,7 @@ class Camera:
         print("Grabbing image...")
         if not self.camera.IsGrabbing():
             self.camera.StartGrabbing(1)
+            
         while self.camera.IsGrabbing():
             grabResult = self.camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
             if grabResult.GrabSucceeded():
@@ -92,20 +94,22 @@ class Camera:
     def show_video(self):
         if not self.camera.IsGrabbing():
             self.camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+        try:
+            while self.camera.IsGrabbing():
+                grabResult = self.camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+                if grabResult.GrabSucceeded():
+                    self.imageWindow.SetImage(grabResult)
+                    if not self.imageWindow.IsVisible():
+                        self.imageWindow.Show()
+                else:
+                    print("Error: ", grabResult.ErrorCode, grabResult.ErrorDescription)
+                    return False
+                grabResult.Release()
+                time.sleep(0.05)
+        except KeyboardInterrupt:
+            return False
 
-        while self.camera.IsGrabbing():
-            grabResult = self.camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
-            if grabResult.GrabSucceeded():
-                self.imageWindow.SetImage(grabResult)
-                if not self.imageWindow.IsVisible():
-                    self.imageWindow.Show()
-            else:
-                print("Error: ", grabResult.ErrorCode, grabResult.ErrorDescription)
-                return False
-            grabResult.Release()
-            time.sleep(0.05)
 
-        
 
 class CNC(Camera):
     def __init__(self):
@@ -115,16 +119,16 @@ class CNC(Camera):
         print("Homing device...")
         self.axes.write("$22 = 1\n".encode())
         self.axes.write("$x\n".encode())
-        self.axes.write("$h\n".encode())
-        self.axes.flushInput()
-        self.axes.flushOutput()
-        for i in range(7):
-            grbl_out = self.axes.readline()
-            time.sleep(1)
-        while grbl_out != b'ok\r\n':
-            grbl_out = self.axes.readline()
-            print("Homing...")
-            time.sleep(1)
+##        self.axes.write("$h\n".encode())
+##        self.axes.flushInput()
+##        self.axes.flushOutput()
+##        for i in range(7):
+##            grbl_out = self.axes.readline()
+##            time.sleep(1)
+##        while grbl_out != b'ok\r\n':
+##            grbl_out = self.axes.readline()
+##            print("Homing...")
+##            time.sleep(1)
         print("Device initialized.")
 
     def alarm_read(self): #to be implemented later
@@ -295,16 +299,15 @@ class LED():
     
             
 def main():
-    camera = Camera()    
+    camera = Camera()
     machine = CNC()
     led = LED()
     machine.position = [0,0,0]
     plate_num = machine.wellplate(plate_list)
     
-    
     #ser_output = machine.axes.readline()
-    while camera.show_video(): #ser_output != b'ALARM:1\r\n' or ser_output != b'[MSG:Reset to continue]\r\n' or ser_output != b'':
-        
+    while True:
+    
         print("\nCurrent position: ", machine.position)
         print("Enter a to move to a well. Enter b to jog the axes.")
         print("Enter p to take a picture.")
@@ -332,10 +335,15 @@ def main():
             machine.axes.write(setting.encode())
         elif main_input == "I":
             led.on()
+            camera.show_video()
         elif main_input == "O":
             led.off()
+        elif main_input == "v":
+            camera.show_video()
         elif main_input == "exit":
             camera.imageWindow.Close()
+            camera.camera.Close()
+            led.off()
             sys.exit()
         else:
             print("Invalid input. Please try again.")
