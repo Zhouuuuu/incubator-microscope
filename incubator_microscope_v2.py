@@ -51,6 +51,8 @@ class Camera:
         self.converter = pylon.ImageFormatConverter()
         self.converter.OutputPixelFormat = pylon.PixelType_BGR8packed
         self.converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
+        self.camera.ExposureAuto.SetValue("Off")
+        self.camera.GainAuto.SetValue("Off")
         self.imageWindow = pylon.PylonImageWindow()
         self.imageWindow.Create(1)
         os.chdir("C:\\Users\\Wyss User\\Pictures\\Basler Test")
@@ -93,27 +95,41 @@ class Camera:
         #self.camera.Close()
         return True
 
-    def show_video(self):
-        if not self.camera.IsGrabbing():
-            self.camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)            
-        try:
-            while self.camera.IsGrabbing():
-                grabResult = self.camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
-                if grabResult.GrabSucceeded():
-                    if not self.imageWindow.IsVisible():
-                        self.imageWindow.Show()
-                    self.imageWindow.SetImage(grabResult)
+    def change_gain(self):
+        gain = self.camera.Gain.GetValue()
+        exposure = self.camera.ExposureTime.GetValue()
+        print("Current gain: ", gain)
+        print("Current exposure: ", exposure)
+        print("Use l and k to change the gain.")
+        print("Use m and n to change the exposure time.")
+        while True:
+            try:
+                if keyboard.is_pressed("l"):
+                    gain = gain + 0.20
+                    self.camera.Gain.SetValue(gain)
+                    print("Gain: ",gain)
+                    time.sleep(0.2)
+                elif keyboard.is_pressed("k"):
+                    gain = gain - 0.20
+                    self.camera.Gain.SetValue(gain)
+                    print("Gain: ",gain)
+                    time.sleep(0.2)
+                elif keyboard.is_pressed("m"):
+                    exposure = exposure + 20
+                    self.camera.ExposureTime.SetValue(exposure)
+                    print("Exposure: ", exposure)
+                    time.sleep(0.2)
+                elif keyboard.is_pressed("n"):
+                    exposure = exposure - 20
+                    self.camera.ExposureTime.SetValue(exposure)
+                    print("Exposure: ", exposure)
+                    time.sleep(0.2)
+                elif keyboard.is_pressed("Esc"):
+                    return gain
+            except:
+                print("Gain cannot be lower than zero.")
+                break
                     
-                else:
-                    print("Error: ", grabResult.ErrorCode, grabResult.ErrorDescription)
-                    return False
-                grabResult.Release()
-                time.sleep(0.05)
-        except KeyboardInterrupt:
-            self.camera.StopGrabbing()
-            return False
-
-
 class CNC(Camera):
     def __init__(self):
         self.axes = serial.Serial("COM4", baudrate = 115200, timeout = 1)
@@ -347,11 +363,10 @@ def main(camera):
             machine.axes.write(setting.encode())
         elif main_input == "I":
             led.on()
-            camera.show_video()
         elif main_input == "O":
             led.off()
-        elif main_input == "v":
-            camera.show_video()
+        elif main_input == "u":
+            gain = camera.change_gain()
         elif main_input == "exit":
             camera.imageWindow.Close()
             camera.camera.Close()
