@@ -10,6 +10,8 @@ import numpy as np
 import cv2
 from collections import OrderedDict
 from plate_dict import plate_96
+import keyboard
+import threading
 
 
 ##plate_96 = OrderedDict([
@@ -37,8 +39,8 @@ jog_dict = {
     }
 
 [xMin, xMax] = [0.0,30.0]
-[yMin, yMax] = [0.0, 30.0]
-[zMin, zMax] = [-45.0, 0.0]
+[yMin, yMax] = [0.0, 100.0]
+[zMin, zMax] = [-45.0, 25.0]
 
 class Camera:
     def __init__(self): #initialize instance of Camera
@@ -87,28 +89,29 @@ class Camera:
             else:
                 print("Error: ", grabResult.ErrorCode, grabResult.ErrorDescription)
                 return False
-        self.camera.StopGrabbing()
+        #self.camera.StopGrabbing()
         #self.camera.Close()
         return True
 
     def show_video(self):
         if not self.camera.IsGrabbing():
-            self.camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+            self.camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)            
         try:
             while self.camera.IsGrabbing():
                 grabResult = self.camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
                 if grabResult.GrabSucceeded():
-                    self.imageWindow.SetImage(grabResult)
                     if not self.imageWindow.IsVisible():
                         self.imageWindow.Show()
+                    self.imageWindow.SetImage(grabResult)
+                    
                 else:
                     print("Error: ", grabResult.ErrorCode, grabResult.ErrorDescription)
                     return False
                 grabResult.Release()
                 time.sleep(0.05)
         except KeyboardInterrupt:
+            self.camera.StopGrabbing()
             return False
-
 
 
 class CNC(Camera):
@@ -130,14 +133,6 @@ class CNC(Camera):
 ##            print("Homing...")
 ##            time.sleep(1)
         print("Device initialized.")
-
-    def alarm_read(self): #to be implemented later
-        #alarm = b'ALARM:1\r\n'
-        #grbl_output = self.axes.readline()
-        #if grbl_output == alarm:
-        #    return grbl_output
-        #return True
-        pass
 
     def configure_settings(self):
         setting = input("\nEnter grbl setting to be changed: ")
@@ -297,14 +292,31 @@ class LED():
         self.led.write(b"O\r\n")
         return True
     
-            
-def main():
-    camera = Camera()
+def show_video(c):
+    if not c.camera.IsGrabbing():
+        c.camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)            
+    while c.camera.IsGrabbing():
+        grabResult = c.camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
+        if grabResult.GrabSucceeded():
+            c.imageWindow.SetImage(grabResult)
+            if not c.imageWindow.IsVisible():
+                c.imageWindow.Show()
+        else:
+            print("Error: ", grabResult.ErrorCode, grabResult.ErrorDescription)
+            return False
+        grabResult.Release()
+        time.sleep(0.05)
+ 
+def main(camera):
+    #camera = Camera()
     machine = CNC()
     led = LED()
     machine.position = [0,0,0]
     plate_num = machine.wellplate(plate_list)
-    
+##    live_feed = threading.Thread(target = camera.show_video(), daemon = True)
+##    live_feed.start()
+##    live_feed.join()
+##    
     #ser_output = machine.axes.readline()
     while True:
     
@@ -351,4 +363,12 @@ def main():
     return False
     
 if __name__ == "__main__":
-    main()
+    camera = Camera()
+    t1 = threading.Thread(target = main, args = (camera,))
+    t2 = threading.Thread(target = show_video, args = (camera,))
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+
+
