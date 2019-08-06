@@ -104,22 +104,22 @@ class Camera:
         print("Use m and n to change the exposure time.")
         while True:
             try:
-                if keyboard.is_pressed("l"):
+                if keyboard.is_pressed("up"):
                     gain = gain + 0.20
                     self.camera.Gain.SetValue(gain)
                     print("Gain: ",gain)
                     time.sleep(0.2)
-                elif keyboard.is_pressed("k"):
+                elif keyboard.is_pressed("down"):
                     gain = gain - 0.20
                     self.camera.Gain.SetValue(gain)
                     print("Gain: ",gain)
                     time.sleep(0.2)
-                elif keyboard.is_pressed("m"):
+                elif keyboard.is_pressed("right"):
                     exposure = exposure + 20
                     self.camera.ExposureTime.SetValue(exposure)
                     print("Exposure: ", exposure)
                     time.sleep(0.2)
-                elif keyboard.is_pressed("n"):
+                elif keyboard.is_pressed("left"):
                     exposure = exposure - 20
                     self.camera.ExposureTime.SetValue(exposure)
                     print("Exposure: ", exposure)
@@ -202,46 +202,104 @@ class CNC(Camera):
             print("Invalid input. Please try again.")
         return position
     
-    def jog(self, jog_dict, position, xMin, xMax, yMin, yMax, zMin, zMax):
+    def jog(self, position, xMin, xMax, yMin, yMax, zMin, zMax):
+        jog_increment = 0.5
+        print("Current position: ", position)
+        print("Jog increment: ", jog_increment)
         while True:
-            jog_increment = input("Enter a jog increment (mm): ")
             try:
-                jog_increment = float(jog_increment)
-                if jog_increment > 0:
-                    jog_dict["w"] = [0, jog_increment, 0]
-                    jog_dict["a"] = [-jog_increment, 0, 0]
-                    jog_dict["s"] = [0, -jog_increment, 0]
-                    jog_dict["d"] = [jog_increment, 0, 0]
-                    jog_dict["q"] = [0, 0, -jog_increment]
-                    jog_dict["e"] = [0, 0, jog_increment]
-                    while True:
-                        print("\nUse the 'wasd' keys to jog the X and Y axes.")
-                        print("Use the q and e keys to jog the Z axis.")
-                        print("Type 'esc' to exit. Type 'back' to change the jog increment.")
-                        print("Current position:", position)
-                        jog_input = input(">> ")
-                        if jog_input in jog_dict:
-                            x = round(position[0] + jog_dict[jog_input][0], 5)
-                            y = round(position[1] + jog_dict[jog_input][1], 5)
-                            z = round(position[2] + jog_dict[jog_input][2], 5)
-                            if x < xMin or x > xMax or y < yMin or y > yMax or z < zMin or z > zMax:
-                                print("Beyond axis limit.")
-                            else:
-                                jog_command = f"G91 X{jog_dict[jog_input][0]} Y{jog_dict[jog_input][1]} Z{jog_dict[jog_input][2]}\n"
-                                self.axes.write(jog_command.encode())
-                                position = [x,y,z]
-                        elif jog_input == "back":
-                            break
-                        elif jog_input == "esc":
-                            return position
-                        else:
-                            print("Invalid input. Please try again.")
-                else:
-                    print("Input must be a number greater than zero")
-            except ValueError as error:
-                print("\n",error)
-                print("Input must be number greater than zero.")
-                return position
+                if keyboard.is_pressed("right") and xMin < position[0] + 0.1 < xMax:
+                    gcode_command = f"G91 X{jog_increment}\n"
+                    self.axes.write(gcode_command.encode())
+                    position[0] = round(position[0] + 0.1, 5)
+                    print("Current position: ", position)
+                    time.sleep(0.25)
+                elif keyboard.is_pressed("left") and xMin < position[0] - 0.1 < xMax:
+                    gcode_command = f"G91 X{-jog_increment}\n"
+                    self.axes.write(gcode_command.encode())
+                    position[0] = round(position[0] - 0.1, 5)
+                    print("Current position: ", position)
+                    time.sleep(0.25)
+                elif keyboard.is_pressed("up") and yMin < position[1] + 0.1 < yMax:
+                    gcode_command = f"G91 Y{jog_increment}\n"
+                    self.axes.write(gcode_command.encode())
+                    position[1] = round(position[1] + 0.1, 5)
+                    print("Current position: ", position)
+                    time.sleep(0.25)
+                elif keyboard.is_pressed("down") and yMin < position[1] - 0.1 < yMax:
+                    gcode_command = f"G91 Y{-jog_increment}\n"
+                    self.axes.write(gcode_command.encode())
+                    position[1] = round(position[1] - 0.1, 5)
+                    print("Current position: ", position)
+                    time.sleep(0.25)
+                elif keyboard.is_pressed("page_down") and zMin < position[2] + 0.1 < zMax:
+                    gcode_command = f"G91 Z{jog_increment}\n"
+                    self.axes.write(gcode_command.encode())
+                    position[2] = round(position[2] + 0.1, 5)
+                    print("Current position: ", position)
+                    time.sleep(0.25)
+                elif keyboard.is_pressed("page_up") and zMin < position[2] - 0.1 < zMax:
+                    gcode_command = f"G91 Z{-jog_increment}\n"
+                    self.axes.write(gcode_command.encode())
+                    position[2] = round(position[2] - 0.1, 5)
+                    print("Current position: ", position)
+                    time.sleep(0.25)
+                elif keyboard.is_pressed("alt"):
+                    jog_increment = jog_increment + 0.1
+                    print("Jog increment: ", jog_increment)
+                    time.sleep(0.1)
+                elif keyboard.is_pressed("ctrl"):
+                    jog_increment = jog_increment - 0.1
+                    print("Jog increment: ", jog_increment)
+                    time.sleep(0.1)
+                elif keyboard.is_pressed("Esc"):
+                    return position
+    
+            except Exception as error:
+                print(error)
+                
+
+    
+##    def jog(self, jog_dict, position, xMin, xMax, yMin, yMax, zMin, zMax):
+##        while True:
+##            jog_increment = input("Enter a jog increment (mm): ")
+##            try:
+##                jog_increment = float(jog_increment)
+##                if jog_increment > 0:
+##                    jog_dict["w"] = [0, jog_increment, 0]
+##                    jog_dict["a"] = [-jog_increment, 0, 0]
+##                    jog_dict["s"] = [0, -jog_increment, 0]
+##                    jog_dict["d"] = [jog_increment, 0, 0]
+##                    jog_dict["q"] = [0, 0, -jog_increment]
+##                    jog_dict["e"] = [0, 0, jog_increment]
+##                    while True:
+##                        print("\nUse the 'wasd' keys to jog the X and Y axes.")
+##                        print("Use the q and e keys to jog the Z axis.")
+##                        print("Type 'esc' to exit. Type 'back' to change the jog increment.")
+##                        print("Current position:", position)
+##                        jog_input = input(">> ")
+##                        if jog_input in jog_dict:
+##                            x = round(position[0] + jog_dict[jog_input][0], 5)
+##                            y = round(position[1] + jog_dict[jog_input][1], 5)
+##                            z = round(position[2] + jog_dict[jog_input][2], 5)
+##                            if x < xMin or x > xMax or y < yMin or y > yMax or z < zMin or z > zMax:
+##                                print("Beyond axis limit.")
+##                            else:
+##                                jog_command = f"G91 X{jog_dict[jog_input][0]} Y{jog_dict[jog_input][1]} Z{jog_dict[jog_input][2]}\n"
+##                                self.axes.write(jog_command.encode())
+##                                position = [x,y,z]
+##                        elif jog_input == "back":
+##                            break
+##                        elif jog_input == "esc":
+##                            return position
+##                        else:
+##                            print("Invalid input. Please try again.")
+##                else:
+##                    print("Input must be a number greater than zero")
+##            except ValueError as error:
+##                print("\n",error)
+##                print("Input must be number greater than zero.")
+##                return position
 
     def night_cycle(self, plate_dict, camera, position):
 
@@ -349,7 +407,7 @@ def main(camera):
         if main_input == "a":
             machine.position = machine.well_move(plate_num, machine.position)
         elif main_input == "b":
-            machine.position = machine.jog(jog_dict, machine.position, xMin, xMax, yMin, yMax, zMin, zMax)
+            machine.position = machine.jog(machine.position, xMin, xMax, yMin, yMax, zMin, zMax)
         elif main_input == "p":
             camera.acquire_image()
         elif main_input == "n":
