@@ -95,35 +95,35 @@ class Camera:
         #self.camera.Close()
         return True
 
-    def change_gain(self):
+    def change_parameters(self):
         gain = self.camera.Gain.GetValue()
         exposure = self.camera.ExposureTime.GetValue()
         print("Current gain: ", gain)
         print("Current exposure: ", exposure)
-        print("Use l and k to change the gain.")
-        print("Use m and n to change the exposure time.")
+        print("Use the up and down arrows to change the gain.")
+        print("Use the left and right arrows to change the exposure time.")
         while True:
             try:
                 if keyboard.is_pressed("up"):
-                    gain = gain + 0.20
+                    gain = round((gain + 0.20), 2)
                     self.camera.Gain.SetValue(gain)
                     print("Gain: ",gain)
-                    time.sleep(0.2)
+                    time.sleep(0.1)
                 elif keyboard.is_pressed("down"):
-                    gain = gain - 0.20
+                    gain = round((gain - 0.20), 2)
                     self.camera.Gain.SetValue(gain)
                     print("Gain: ",gain)
-                    time.sleep(0.2)
+                    time.sleep(0.1)
                 elif keyboard.is_pressed("right"):
                     exposure = exposure + 20
                     self.camera.ExposureTime.SetValue(exposure)
                     print("Exposure: ", exposure)
-                    time.sleep(0.2)
+                    time.sleep(0.01)
                 elif keyboard.is_pressed("left"):
                     exposure = exposure - 20
                     self.camera.ExposureTime.SetValue(exposure)
                     print("Exposure: ", exposure)
-                    time.sleep(0.2)
+                    time.sleep(0.02)
                 elif keyboard.is_pressed("Esc"):
                     return gain
             except:
@@ -184,7 +184,7 @@ class CNC(Camera):
     def well_move(self, plate, position):
 
         print("\nWhich well (ex. A1)?")
-        print("Type 'esc' to go back.")
+        print("Enter nothing to go back.")
         well = input(">> ")
         if well in plate and position == plate[well]:
             print("Already at", well)
@@ -196,14 +196,20 @@ class CNC(Camera):
             self.axes.write(gcode_command.encode())
             position = plate[well]
             return position
-        elif well == "esc":
+        elif well == "":
             print("Exited.")
+            return position
         else:
             print("Invalid input. Please try again.")
         return position
     
-    def jog(self, position, xMin, xMax, yMin, yMax, zMin, zMax):
+    def jog(self, camera, position, xMin, xMax, yMin, yMax, zMin, zMax):
         jog_increment = 0.5
+        
+        print("Use the arrow keys to jog the X and Y axes.")
+        print("Use the page up and page down keys to jog the Z axis.")
+        print("Use ctrl and alt to change the jog increment.")
+        print("Press p to take a picture.")
         print("Current position: ", position)
         print("Jog increment: ", jog_increment)
         while True:
@@ -211,37 +217,37 @@ class CNC(Camera):
                 if keyboard.is_pressed("right") and xMin < position[0] + 0.1 < xMax:
                     gcode_command = f"G91 X{jog_increment}\n"
                     self.axes.write(gcode_command.encode())
-                    position[0] = round(position[0] + 0.1, 5)
+                    position[0] = round(position[0] + jog_increment, 5)
                     print("Current position: ", position)
                     time.sleep(0.25)
                 elif keyboard.is_pressed("left") and xMin < position[0] - 0.1 < xMax:
                     gcode_command = f"G91 X{-jog_increment}\n"
                     self.axes.write(gcode_command.encode())
-                    position[0] = round(position[0] - 0.1, 5)
+                    position[0] = round(position[0] - jog_increment, 5)
                     print("Current position: ", position)
                     time.sleep(0.25)
                 elif keyboard.is_pressed("up") and yMin < position[1] + 0.1 < yMax:
                     gcode_command = f"G91 Y{jog_increment}\n"
                     self.axes.write(gcode_command.encode())
-                    position[1] = round(position[1] + 0.1, 5)
+                    position[1] = round(position[1] + jog_increment, 5)
                     print("Current position: ", position)
                     time.sleep(0.25)
                 elif keyboard.is_pressed("down") and yMin < position[1] - 0.1 < yMax:
                     gcode_command = f"G91 Y{-jog_increment}\n"
                     self.axes.write(gcode_command.encode())
-                    position[1] = round(position[1] - 0.1, 5)
+                    position[1] = round(position[1] - jog_increment, 5)
                     print("Current position: ", position)
                     time.sleep(0.25)
                 elif keyboard.is_pressed("page_down") and zMin < position[2] + 0.1 < zMax:
                     gcode_command = f"G91 Z{jog_increment}\n"
                     self.axes.write(gcode_command.encode())
-                    position[2] = round(position[2] + 0.1, 5)
+                    position[2] = round(position[2] + jog_increment, 5)
                     print("Current position: ", position)
                     time.sleep(0.25)
                 elif keyboard.is_pressed("page_up") and zMin < position[2] - 0.1 < zMax:
                     gcode_command = f"G91 Z{-jog_increment}\n"
                     self.axes.write(gcode_command.encode())
-                    position[2] = round(position[2] - 0.1, 5)
+                    position[2] = round(position[2] - jog_increment, 5)
                     print("Current position: ", position)
                     time.sleep(0.25)
                 elif keyboard.is_pressed("alt"):
@@ -255,6 +261,9 @@ class CNC(Camera):
                         print("Jog increment must be greater than zero.")
                     print("Jog increment: ", jog_increment)
                     time.sleep(0.1)
+                elif keyboard.is_pressed("p"):
+                    Camera.acquire_image(camera)
+                    time.sleep(1)
                 elif keyboard.is_pressed("Esc"):
                     return position
     
@@ -342,32 +351,30 @@ def show_video(c):
         time.sleep(0.05)
  
 def main(camera):
-    #camera = Camera()
+
     machine = CNC()
     led = LED()
     machine.position = [0,0,0]
     plate_num = machine.wellplate(plate_list)
-##    live_feed = threading.Thread(target = camera.show_video(), daemon = True)
-##    live_feed.start()
-##    live_feed.join()
-##    
-    #ser_output = machine.axes.readline()
+
     while True:
     
         print("\nCurrent position: ", machine.position)
         print("Enter a to move to a well. Enter b to jog the axes.")
         print("Enter p to take a picture.")
         print("Enter z for cycle")
-        print("Enter c for custom grbl command.")
         print("Enter h to home the machine")
-        print("To change the well plate number, enter n.")
+        print("Enter n to change the well plate number.")
+        print("Enter I or O to toggle the LED.")
+        print("Enter u to change camera parameters.")
+        print("Enter c to enter a custom GRBL command. (CAUTION)")
         print("To stop the program, enter 'exit'.")
 
         main_input = input(">> ")
         if main_input == "a":
             machine.position = machine.well_move(plate_num, machine.position)
         elif main_input == "b":
-            machine.position = machine.jog(machine.position, xMin, xMax, yMin, yMax, zMin, zMax)
+            machine.position = machine.jog(camera, machine.position, xMin, xMax, yMin, yMax, zMin, zMax)
         elif main_input == "p":
             camera.acquire_image()
         elif main_input == "n":
@@ -384,7 +391,7 @@ def main(camera):
         elif main_input == "O":
             led.off()
         elif main_input == "u":
-            gain = camera.change_gain()
+            gain = camera.change_parameters()
         elif main_input == "exit":
             camera.imageWindow.Close()
             camera.camera.Close()
