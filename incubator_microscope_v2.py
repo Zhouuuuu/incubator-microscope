@@ -38,9 +38,9 @@ jog_dict = {
     "e": None
     }
 
-[xMin, xMax] = [0.0,30.0]
+[xMin, xMax] = [0.0,100.0]
 [yMin, yMax] = [0.0, 100.0]
-[zMin, zMax] = [-45.0, 25.0]
+[zMin, zMax] = [-50.0, 0.0]
 
 class Camera:
     def __init__(self): #initialize instance of Camera
@@ -107,22 +107,22 @@ class Camera:
                 if keyboard.is_pressed("up"):
                     gain = round((gain + 0.20), 2)
                     self.camera.Gain.SetValue(gain)
-                    print("Gain: ",gain)
+                    print("Gain (db): ",gain)
                     time.sleep(0.1)
                 elif keyboard.is_pressed("down"):
                     gain = round((gain - 0.20), 2)
                     self.camera.Gain.SetValue(gain)
-                    print("Gain: ",gain)
+                    print("Gain (db): ",gain)
                     time.sleep(0.1)
                 elif keyboard.is_pressed("right"):
                     exposure = exposure + 20
                     self.camera.ExposureTime.SetValue(exposure)
-                    print("Exposure: ", exposure)
+                    print("Exposure (us): ", exposure)
                     time.sleep(0.01)
                 elif keyboard.is_pressed("left"):
                     exposure = exposure - 20
                     self.camera.ExposureTime.SetValue(exposure)
-                    print("Exposure: ", exposure)
+                    print("Exposure (us): ", exposure)
                     time.sleep(0.02)
                 elif keyboard.is_pressed("Esc"):
                     return gain
@@ -138,16 +138,16 @@ class CNC(Camera):
         print("Homing device...")
         self.axes.write("$22 = 1\n".encode())
         self.axes.write("$x\n".encode())
-##        self.axes.write("$h\n".encode())
-##        self.axes.flushInput()
-##        self.axes.flushOutput()
-##        for i in range(7):
-##            grbl_out = self.axes.readline()
-##            time.sleep(1)
-##        while grbl_out != b'ok\r\n':
-##            grbl_out = self.axes.readline()
-##            print("Homing...")
-##            time.sleep(1)
+        self.axes.write("$h\n".encode())
+        self.axes.flushInput()
+        self.axes.flushOutput()
+        for i in range(7):
+            grbl_out = self.axes.readline()
+            time.sleep(1)
+        while grbl_out != b'ok\r\n':
+            grbl_out = self.axes.readline()
+            print("Homing...")
+            time.sleep(1)
         print("Device initialized.")
 
     def configure_settings(self):
@@ -205,7 +205,10 @@ class CNC(Camera):
     
     def jog(self, camera, position, xMin, xMax, yMin, yMax, zMin, zMax):
         jog_increment = 0.5
-        
+        sleep_time = 0.1
+        self.axes.write("$110 = 300\n".encode())
+        self.axes.write("$111 = 300\n".encode())
+        self.axes.write("$112 = 200\n".encode())
         print("Use the arrow keys to jog the X and Y axes.")
         print("Use the page up and page down keys to jog the Z axis.")
         print("Use ctrl and alt to change the jog increment.")
@@ -214,57 +217,63 @@ class CNC(Camera):
         print("Jog increment: ", jog_increment)
         while True:
             try:
-                if keyboard.is_pressed("right") and xMin < position[0] + 0.1 < xMax:
+                if keyboard.is_pressed("right") and xMin <= position[0] + jog_increment <= xMax:
                     gcode_command = f"G91 X{jog_increment}\n"
                     self.axes.write(gcode_command.encode())
                     position[0] = round(position[0] + jog_increment, 5)
                     print("Current position: ", position)
-                    time.sleep(0.25)
-                elif keyboard.is_pressed("left") and xMin < position[0] - 0.1 < xMax:
+                    time.sleep(sleep_time)
+                elif keyboard.is_pressed("left") and xMin <= position[0] - jog_increment <= xMax:
                     gcode_command = f"G91 X{-jog_increment}\n"
                     self.axes.write(gcode_command.encode())
                     position[0] = round(position[0] - jog_increment, 5)
                     print("Current position: ", position)
-                    time.sleep(0.25)
-                elif keyboard.is_pressed("up") and yMin < position[1] + 0.1 < yMax:
+                    time.sleep(sleep_time)
+                elif keyboard.is_pressed("up") and yMin <= position[1] + jog_increment <= yMax:
                     gcode_command = f"G91 Y{jog_increment}\n"
                     self.axes.write(gcode_command.encode())
                     position[1] = round(position[1] + jog_increment, 5)
                     print("Current position: ", position)
-                    time.sleep(0.25)
-                elif keyboard.is_pressed("down") and yMin < position[1] - 0.1 < yMax:
+                    time.sleep(sleep_time)
+                elif keyboard.is_pressed("down") and yMin <= position[1] - jog_increment <= yMax:
                     gcode_command = f"G91 Y{-jog_increment}\n"
                     self.axes.write(gcode_command.encode())
                     position[1] = round(position[1] - jog_increment, 5)
                     print("Current position: ", position)
-                    time.sleep(0.25)
-                elif keyboard.is_pressed("page_down") and zMin < position[2] + 0.1 < zMax:
+                    time.sleep(sleep_time)
+                elif keyboard.is_pressed("page_down") and zMin <= position[2] + jog_increment <= zMax:
                     gcode_command = f"G91 Z{jog_increment}\n"
                     self.axes.write(gcode_command.encode())
                     position[2] = round(position[2] + jog_increment, 5)
                     print("Current position: ", position)
-                    time.sleep(0.25)
-                elif keyboard.is_pressed("page_up") and zMin < position[2] - 0.1 < zMax:
+                    time.sleep(sleep_time)
+                elif keyboard.is_pressed("page_up") and zMin <= position[2] - jog_increment <= zMax:
                     gcode_command = f"G91 Z{-jog_increment}\n"
                     self.axes.write(gcode_command.encode())
                     position[2] = round(position[2] - jog_increment, 5)
                     print("Current position: ", position)
-                    time.sleep(0.25)
+                    time.sleep(sleep_time)
                 elif keyboard.is_pressed("alt"):
-                    jog_increment = jog_increment + 0.1
+                    jog_increment = round(jog_increment + 0.05, 4)
                     print("Jog increment: ", jog_increment)
-                    time.sleep(0.1)
+                    sleep_time = jog_increment / 4.925
+                    time.sleep(0.05)
                 elif keyboard.is_pressed("ctrl"):
-                    jog_increment = jog_increment - 0.1
-                    if jog_increment <= 0.0:
-                        jog_increment = 0.1
+                    jog_increment = round(jog_increment - 0.05, 4)
+                    if jog_increment < 0.05:
+                        jog_increment = 0.05
                         print("Jog increment must be greater than zero.")
                     print("Jog increment: ", jog_increment)
-                    time.sleep(0.1)
+                    sleep_time = jog_increment / 4.925
+                    time.sleep(0.05)
                 elif keyboard.is_pressed("p"):
                     Camera.acquire_image(camera)
                     time.sleep(1)
                 elif keyboard.is_pressed("Esc"):
+                    self.axes.write("$110 = 300\n".encode())
+                    self.axes.write("$111 = 300\n".encode())
+                    self.axes.write("$112 = 200\n".encode())
+                    time.sleep(0.5)
                     return position
     
             except Exception as error:
@@ -349,6 +358,7 @@ def show_video(c):
             return False
         grabResult.Release()
         time.sleep(0.05)
+        
  
 def main(camera):
 
@@ -382,7 +392,7 @@ def main(camera):
         elif main_input == "z":
             machine.night_cycle(plate_96, camera, machine.position)
         elif main_input == "h":
-            machine.home_cycle(machine.position)
+            machine.position = machine.home_cycle(machine.position)
         elif main_input == "c":
             setting = machine.configure_settings()
             machine.axes.write(setting.encode())

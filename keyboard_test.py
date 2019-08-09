@@ -2,7 +2,7 @@ import keyboard
 import time# using module keyboard
 time.sleep(1)
 while True:
-    print("f")
+    
     # making a loop
     try:  # used try so that if user pressed other than the given key error will not be shown
         if keyboard.is_pressed('q'):  # if key 'q' is pressed
