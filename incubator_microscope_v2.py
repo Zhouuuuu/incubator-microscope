@@ -9,24 +9,15 @@ import os
 import numpy as np
 import cv2
 from collections import OrderedDict
-from plate_dict import plate_96
+from plate_dict import plate_6
 import keyboard
 import threading
 
-
-##plate_96 = OrderedDict([
-##    #("Home", [0,0,0]),
-##    ("A1", [10,0,0]),
-##    ("B1", [10,10,0]),
-##    ("C1", [0,10,0]),
-##    ("D1", [0,0,0])
-##    ])
-
-plate_list = {"6": "plate_6",
+plate_list = {"6": plate_6,
               "12": "plate_12",
               "24": "plate_24",
               "48": "plate_48",
-              "96": plate_96
+              "96": "plate_96"
               }
 
 jog_dict = {
@@ -38,46 +29,60 @@ jog_dict = {
     "e": None
     }
 
-[xMin, xMax] = [0.0,100.0]
-[yMin, yMax] = [0.0, 100.0]
-[zMin, zMax] = [-50.0, 0.0]
+[xMin, xMax] = [0.0,120.0]
+[yMin, yMax] = [0.0, 120.0]
+[zMin, zMax] = [-56.0, 50.0]
 
 class Camera:
-    def __init__(self): #initialize instance of Camera
+    def __init__(self): #initialize Camera object
         
-        self.camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice())
+        self.camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice()) #create instance of Camera
+
+        #Open camera
         self.camera.Open()
         print("Using device:", self.camera.GetDeviceInfo().GetModelName())
         self.converter = pylon.ImageFormatConverter()
         self.converter.OutputPixelFormat = pylon.PixelType_BGR8packed
         self.converter.OutputBitAlignment = pylon.OutputBitAlignment_MsbAligned
+
+        #Set Auto-Gain and Auto-Exposure to be OFF
         self.camera.ExposureAuto.SetValue("Off")
         self.camera.GainAuto.SetValue("Off")
+
+        #Create an image window
         self.imageWindow = pylon.PylonImageWindow()
         self.imageWindow.Create(1)
+
+        #Change save directory
         os.chdir("C:\\Users\\Wyss User\\Pictures\\Basler Test")
         print("Current working directory (save location):", os.getcwd())
+        
         print("Camera initialized.")
 
-    def save_image(self, grabResult):
+    def save_image(self, grabResult): #Method for saving images
+
+        #Set saved image title format: Time-Date.jpeg
         now = datetime.datetime.now()
         nowstr = now.strftime("%H%M%f-%m_%d_%y")
         print("Saving image...")
         ipo = pylon.ImagePersistenceOptions()
         ipo.SetQuality(100)
         filename = nowstr + ".jpeg"
+
+        #Save using cv2
         try:
             image = self.converter.Convert(grabResult)
             img = image.GetArray()
             cv2.imwrite(filename, img)
-            grabResult.Release()
+            grabResult.Release() #Release the grab result so that a new image can be grabbed
             print("Image successfully saved as", filename)
         except Exception as error:
             print("Error saving image:", error)
             return False
         return True
 
-    def acquire_image(self):
+    def acquire_image(self): #Method for grabbing and saving one image
+        
         print("Grabbing image...")
         if not self.camera.IsGrabbing():
             self.camera.StartGrabbing(1)
@@ -86,7 +91,7 @@ class Camera:
             grabResult = self.camera.RetrieveResult(5000, pylon.TimeoutHandling_ThrowException)
             if grabResult.GrabSucceeded():
                 print("Image successfully grabbed...")
-                self.save_image(grabResult)
+                self.save_image(grabResult) #Call save_image method
                 break
             else:
                 print("Error: ", grabResult.ErrorCode, grabResult.ErrorDescription)
@@ -95,7 +100,9 @@ class Camera:
         #self.camera.Close()
         return True
 
-    def change_parameters(self):
+    def change_parameters(self): #Method for changing the exposure and gain of the camera
+
+        #Get current gain and exposure values
         gain = self.camera.Gain.GetValue()
         exposure = self.camera.ExposureTime.GetValue()
         print("Current gain: ", gain)
@@ -103,59 +110,70 @@ class Camera:
         print("Use the up and down arrows to change the gain.")
         print("Use the left and right arrows to change the exposure time.")
         while True:
+
+            #Arrow keys used to change parameters
             try:
                 if keyboard.is_pressed("up"):
-                    gain = round((gain + 0.20), 2)
+                    gain = round((gain + 0.20), 2)  #Gain changed with up and down arrows by increments of 0.20db
                     self.camera.Gain.SetValue(gain)
                     print("Gain (db): ",gain)
-                    time.sleep(0.1)
+                    time.sleep(0.1)                 #Sleep time of 0.1 seconds
                 elif keyboard.is_pressed("down"):
                     gain = round((gain - 0.20), 2)
                     self.camera.Gain.SetValue(gain)
                     print("Gain (db): ",gain)
                     time.sleep(0.1)
-                elif keyboard.is_pressed("right"):
-                    exposure = exposure + 20
+                elif keyboard.is_pressed("right"):  #Exposure changed with left and right arrows keys
+                    exposure = exposure + 20        #Changed by increments of 20
                     self.camera.ExposureTime.SetValue(exposure)
                     print("Exposure (us): ", exposure)
-                    time.sleep(0.01)
+                    time.sleep(0.01)                #Sleep time of 1 ms
                 elif keyboard.is_pressed("left"):
                     exposure = exposure - 20
                     self.camera.ExposureTime.SetValue(exposure)
                     print("Exposure (us): ", exposure)
                     time.sleep(0.02)
-                elif keyboard.is_pressed("Esc"):
+                elif keyboard.is_pressed("Esc"):    #Escape key used to exit method
                     return gain
             except:
                 print("Gain cannot be lower than zero.")
                 break
                     
-class CNC(Camera):
-    def __init__(self):
-        self.axes = serial.Serial("COM4", baudrate = 115200, timeout = 1)
+class CNC(Camera): #Class for motor control which inherits Camera class for image save functionality.
+    def __init__(self): #Initialize instance of CNC
+        self.axes = serial.Serial("COM4", baudrate = 115200, timeout = 1) #Open serial port connected to Arduino/GRBL
         #self.LED = serial.Serial #initialize LED
         time.sleep(2)
+
+        #Home the device on start up
+        time.sleep(1)
+        self.axes.write("$110 = 200\n".encode())
+        time.sleep(1)
+        self.axes.write("$111 = 200\n".encode())
+        time.sleep(1)
         print("Homing device...")
         self.axes.write("$22 = 1\n".encode())
         self.axes.write("$x\n".encode())
-        self.axes.write("$h\n".encode())
+        self.axes.write("$h\n".encode()) #start
         self.axes.flushInput()
         self.axes.flushOutput()
         for i in range(7):
             grbl_out = self.axes.readline()
             time.sleep(1)
-        while grbl_out != b'ok\r\n':
+        while grbl_out != b'ok\r\n':          #Wait until homing has finished
             grbl_out = self.axes.readline()
             print("Homing...")
-            time.sleep(1)
+            time.sleep(1) #finish
+        
         print("Device initialized.")
 
-    def configure_settings(self):
+    def configure_settings(self): #Method for writing directly to GRBL
         setting = input("\nEnter grbl setting to be changed: ")
         setting = setting + "\n"
+        self.axes.write(setting.encode())
         return setting
 
-    def home_cycle(self, position):
+    def home_cycle(self, position): #Method for homing the machine
         count = 0
         self.axes.flushInput()
         self.axes.flushOutput()
@@ -169,7 +187,7 @@ class CNC(Camera):
             count = count + 1
         print("Homing cycle completed.")
         position = [0,0,0]
-        return position
+        return position     #Position must be returned with every move so that the program knows where the machine
 
     def wellplate(self, plate_list):
         while True:
@@ -204,15 +222,16 @@ class CNC(Camera):
         return position
     
     def jog(self, camera, position, xMin, xMax, yMin, yMax, zMin, zMax):
-        jog_increment = 0.5
-        sleep_time = 0.1
-        self.axes.write("$110 = 300\n".encode())
-        self.axes.write("$111 = 300\n".encode())
-        self.axes.write("$112 = 200\n".encode())
+        jog_increment = 0.005
+        sleep_time = 0.25
+        self.axes.write("$110 = 500\n".encode())
+        self.axes.write("$111 = 500\n".encode())
+        self.axes.write("$112 = 300\n".encode())
         print("Use the arrow keys to jog the X and Y axes.")
         print("Use the page up and page down keys to jog the Z axis.")
         print("Use ctrl and alt to change the jog increment.")
         print("Press p to take a picture.")
+        print("Press 'esc' to exit.")
         print("Current position: ", position)
         print("Jog increment: ", jog_increment)
         while True:
@@ -254,25 +273,35 @@ class CNC(Camera):
                     print("Current position: ", position)
                     time.sleep(sleep_time)
                 elif keyboard.is_pressed("alt"):
-                    jog_increment = round(jog_increment + 0.05, 4)
+                    jog_increment = round(jog_increment + 0.01, 4)
                     print("Jog increment: ", jog_increment)
-                    sleep_time = jog_increment / 4.925
+                    sleep_time = 0.25
+                    time.sleep(0.05)
+                elif keyboard.is_pressed("x"):
+                    jog_increment = round(jog_increment + 0.001, 4)
+                    print("Jog increment: ", jog_increment)
+                    sleep_time = 0.25
                     time.sleep(0.05)
                 elif keyboard.is_pressed("ctrl"):
-                    jog_increment = round(jog_increment - 0.05, 4)
-                    if jog_increment < 0.05:
-                        jog_increment = 0.05
-                        print("Jog increment must be greater than zero.")
+                    jog_increment = round(jog_increment - 0.01, 4)
+                    if jog_increment < 0.005:
+                        jog_increment = 0.001
+                        print("Jog increment must be greater than 0.005mm.")
                     print("Jog increment: ", jog_increment)
-                    sleep_time = jog_increment / 4.925
+                    sleep_time = 0.25
+                    time.sleep(0.05)
+                elif keyboard.is_pressed("z"):
+                    jog_increment = round(jog_increment - 0.001, 4)
+                    if jog_increment < 0.005:
+                        jog_increment = 0.005
+                        print("Jog increment must be greater than 0.005mm.")
+                    print("Jog increment: ", jog_increment)
+                    sleep_time = 0.25
                     time.sleep(0.05)
                 elif keyboard.is_pressed("p"):
                     Camera.acquire_image(camera)
                     time.sleep(1)
                 elif keyboard.is_pressed("Esc"):
-                    self.axes.write("$110 = 300\n".encode())
-                    self.axes.write("$111 = 300\n".encode())
-                    self.axes.write("$112 = 200\n".encode())
                     time.sleep(0.5)
                     return position
     
@@ -281,8 +310,8 @@ class CNC(Camera):
 
     def night_cycle(self, plate_dict, camera, position):
 
-        #while self.home_cycle(position):
-        #    break
+        while self.home_cycle(position):
+            break
         time.sleep(1)
         self.axes.flushInput()
         self.axes.flushOutput()
@@ -325,24 +354,6 @@ class CNC(Camera):
                 print(diff)
                 
         return True
-
-class LED():
-    def __init__(self):
-        self.led = serial.Serial("COM7", baudrate = 9600, timeout = 1)
-        self.led.flushInput()
-        for i in range(4):
-            self.led.write(b"I\r\n")
-            time.sleep(0.25)
-            self.led.write(b"O\r\sn")
-            time.sleep(0.25)
-        print("LED initialized.")
-
-    def on(self):
-        self.led.write(b"I\r\n")
-        return True
-    def off(self):
-        self.led.write(b"O\r\n")
-        return True
     
 def show_video(c):
     if not c.camera.IsGrabbing():
@@ -363,7 +374,6 @@ def show_video(c):
 def main(camera):
 
     machine = CNC()
-    led = LED()
     machine.position = [0,0,0]
     plate_num = machine.wellplate(plate_list)
 
@@ -375,7 +385,6 @@ def main(camera):
         print("Enter z for cycle")
         print("Enter h to home the machine")
         print("Enter n to change the well plate number.")
-        print("Enter I or O to toggle the LED.")
         print("Enter u to change camera parameters.")
         print("Enter c to enter a custom GRBL command. (CAUTION)")
         print("To stop the program, enter 'exit'.")
@@ -396,16 +405,11 @@ def main(camera):
         elif main_input == "c":
             setting = machine.configure_settings()
             machine.axes.write(setting.encode())
-        elif main_input == "I":
-            led.on()
-        elif main_input == "O":
-            led.off()
         elif main_input == "u":
             gain = camera.change_parameters()
         elif main_input == "exit":
             camera.imageWindow.Close()
             camera.camera.Close()
-            led.off()
             sys.exit()
         else:
             print("Invalid input. Please try again.")
