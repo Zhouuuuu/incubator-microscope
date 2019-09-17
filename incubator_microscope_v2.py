@@ -49,6 +49,10 @@ class Camera:
         self.camera.ExposureAuto.SetValue("Off")
         self.camera.GainAuto.SetValue("Off")
 
+        self.camera.Gain.GetValue()
+        self.camera.ExposureTime.GetValue()
+        self.camera.Gamma.GetValue()
+
         #Create an image window
         self.imageWindow = pylon.PylonImageWindow()
         self.imageWindow.Create(1)
@@ -146,11 +150,12 @@ class CNC(Camera): #Class for motor control which inherits Camera class for imag
         time.sleep(2)
 
         #Home the device on start up
-        time.sleep(1)
-        self.axes.write("$110 = 200\n".encode())
-        time.sleep(1)
-        self.axes.write("$111 = 200\n".encode())
-        time.sleep(1)
+        time.sleep(0.05)
+        self.axes.write("$110 = 300\n".encode())
+        time.sleep(0.05)
+        self.axes.write("$111 = 300\n".encode())
+        time.sleep(0.05)
+        self.axes.write("$112 = 200\n".encode())
         print("Homing device...")
         self.axes.write("$22 = 1\n".encode())
         self.axes.write("$x\n".encode())
@@ -204,6 +209,7 @@ class CNC(Camera): #Class for motor control which inherits Camera class for imag
         print("\nWhich well (ex. A1)?")
         print("Enter nothing to go back.")
         well = input(">> ")
+        time.sleep(0.05)
         if well in plate and position == plate[well]:
             print("Already at", well)
         elif well in plate and position != plate[well]:
