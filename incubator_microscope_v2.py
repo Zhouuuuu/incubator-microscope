@@ -19,6 +19,9 @@ plate_list = {"6": plate_6,
               "48": "plate_48",
               "96": "plate_96"
               }
+cycle_dict = {
+
+    }
 
 jog_dict = {
     "w": None,
@@ -314,8 +317,21 @@ class CNC(Camera): #Class for motor control which inherits Camera class for imag
             except Exception as error:
                 print(error)
 
-    def night_cycle(self, plate_dict, camera, position):
-
+    def night_cycle(self, camera, position, camera, cycle_dict):
+      
+        num_positions = input("Number of positions?")
+        num_positions = int(num_positions)
+        print("Jog axes to position to be imaged. Press enter to save the position.")
+        
+        count = 0
+        while count < num_positions:
+            while not keyboard.is_pressed("Enter"):
+                self.jog(camera, position,xMin, xMax, yMin, yMax, zMin, zMax)
+            cycle_dict[i] = position
+            confirm = f"Position {i} set as {position}"
+            print(confirm)
+            count = count + 1
+        
         while self.home_cycle(position):
             break
         time.sleep(1)
@@ -328,11 +344,11 @@ class CNC(Camera): #Class for motor control which inherits Camera class for imag
         diff = (current - start).seconds
         
         while diff < 60:
-            for well in plate_dict: #program will always finish last cycle through dictionary even if diff>30
+            for well in cycle_dict: #program will always finish last cycle through dictionary even if diff>30
 
-                x_move = str(plate_dict[well][0] - position[0])
-                y_move = str(plate_dict[well][1] - position[1])
-                z_move = str(plate_dict[well][2] - position[2])
+                x_move = str(cycle_dict[well][0] - position[0])
+                y_move = str(cycle_dict[well][1] - position[1])
+                z_move = str(cycle_dict[well][2] - position[2])
                 gcode_command = f"G91 X{x_move} Y{y_move} Z{z_move}\n"
                 self.axes.write(gcode_command.encode())
                 
@@ -405,7 +421,7 @@ def main(camera):
         elif main_input == "n":
             plate_num = machine.wellplate(plate_list)
         elif main_input == "z":
-            machine.night_cycle(plate_96, camera, machine.position)
+            machine.night_cycle(plate_96, camera, machine.position, camera, cycle_dict)
         elif main_input == "h":
             machine.position = machine.home_cycle(machine.position)
         elif main_input == "c":
