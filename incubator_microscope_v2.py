@@ -413,7 +413,7 @@ def main(camera):
         elif main_input == "n":
             plate_num = machine.wellplate(plate_list)
         elif main_input == "z":
-            machine.night_cycle(plate_96, camera, machine.position, camera)
+            machine.night_cycle(plate_96, camera, machine.position, camera, cycle_dict)
         elif main_input == "h":
             machine.position = machine.home_cycle(machine.position)
         elif main_input == "c":
