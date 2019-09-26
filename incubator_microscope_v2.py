@@ -19,9 +19,7 @@ plate_list = {"6": plate_6,
               "48": "plate_48",
               "96": "plate_96"
               }
-cycle_dict = {
 
-    }
 
 jog_dict = {
     "w": None,
@@ -154,9 +152,9 @@ class CNC(Camera): #Class for motor control which inherits Camera class for imag
 
         #Home the device on start up
         time.sleep(0.05)
-        self.axes.write("$110 = 300\n".encode())
+        self.axes.write("$110 = 400\n".encode())
         time.sleep(0.05)
-        self.axes.write("$111 = 300\n".encode())
+        self.axes.write("$111 = 400\n".encode())
         time.sleep(0.05)
         self.axes.write("$112 = 200\n".encode())
         print("Homing device...")
@@ -232,9 +230,9 @@ class CNC(Camera): #Class for motor control which inherits Camera class for imag
     
     def jog(self, camera, position, xMin, xMax, yMin, yMax, zMin, zMax):
         jog_increment = 0.005
-        sleep_time = 0.25
-        self.axes.write("$110 = 500\n".encode())
-        self.axes.write("$111 = 500\n".encode())
+        sleep_time = 0.1
+        self.axes.write("$110 = 400\n".encode())
+        self.axes.write("$111 = 400\n".encode())
         self.axes.write("$112 = 300\n".encode())
         print("Use the arrow keys to jog the X and Y axes.")
         print("Use the page up and page down keys to jog the Z axis.")
@@ -307,30 +305,39 @@ class CNC(Camera): #Class for motor control which inherits Camera class for imag
                     print("Jog increment: ", jog_increment)
                     sleep_time = 0.25
                     time.sleep(0.05)
+                elif keyboard.is_pressed("shift"):
+                    jog_increment = input("Enter a jog increment: ")
+                    jog_increment = round(float(jog_increment),5)
                 elif keyboard.is_pressed("p"):
                     Camera.acquire_image(camera)
                     time.sleep(1)
                 elif keyboard.is_pressed("Esc"):
                     time.sleep(0.5)
                     return position
+                elif keyboard.is_pressed("space"):
+                    return position
     
             except Exception as error:
                 print(error)
 
-    def night_cycle(self, camera, position, camera, cycle_dict):
-      
-        num_positions = input("Number of positions?")
+    def night_cycle(self, camera, position,xMin, xMax, yMin, yMax, zMin, zMax):
+        cycle_dict = {}
+        num_positions = input("Number of positions? ")
         num_positions = int(num_positions)
-        print("Jog axes to position to be imaged. Press enter to save the position.")
-        
+        print("Jog axes to position to be imaged. Press space to save the position.")
+
         count = 0
         while count < num_positions:
-            while not keyboard.is_pressed("Enter"):
-                self.jog(camera, position,xMin, xMax, yMin, yMax, zMin, zMax)
-            cycle_dict[i] = position
-            confirm = f"Position {i} set as {position}"
+            position = self.jog(camera, position,xMin, xMax, yMin, yMax, zMin, zMax)
+            time.sleep(0.2)
+            cycle_dict[count] = position[:]
+            confirm = f"Position {count} set as {position}"
             print(confirm)
             count = count + 1
+            print(cycle_dict)
+            
+
+        print(cycle_dict)
         
         while self.home_cycle(position):
             break
@@ -344,15 +351,15 @@ class CNC(Camera): #Class for motor control which inherits Camera class for imag
         diff = (current - start).seconds
         
         while diff < 60:
-            for well in cycle_dict: #program will always finish last cycle through dictionary even if diff>30
+            for pos in cycle_dict: #program will always finish last cycle through dictionary even if diff>30
 
-                x_move = str(cycle_dict[well][0] - position[0])
-                y_move = str(cycle_dict[well][1] - position[1])
-                z_move = str(cycle_dict[well][2] - position[2])
+                x_move = str(cycle_dict[pos][0] - position[0])
+                y_move = str(cycle_dict[pos][1] - position[1])
+                z_move = str(cycle_dict[pos][2] - position[2])
                 gcode_command = f"G91 X{x_move} Y{y_move} Z{z_move}\n"
                 self.axes.write(gcode_command.encode())
                 
-                position = plate_dict[well]
+                position = cycle_dict[pos]
                 time.sleep(0.2)
                 self.axes.flushInput()
                 self.axes.write("?\n".encode())
@@ -365,7 +372,7 @@ class CNC(Camera): #Class for motor control which inherits Camera class for imag
                     self.axes.write("?\n".encode())
                     grbl_out = self.axes.readline()
                     print(grbl_out)
-                    time.sleep(0.2)
+                    time.sleep(0.05)
                     
                 print("At position", position)
                 time.sleep(0.5)
@@ -421,7 +428,7 @@ def main(camera):
         elif main_input == "n":
             plate_num = machine.wellplate(plate_list)
         elif main_input == "z":
-            machine.night_cycle(plate_96, camera, machine.position, camera, cycle_dict)
+            machine.night_cycle(camera, machine.position,xMin, xMax, yMin, yMax, zMin, zMax)
         elif main_input == "h":
             machine.position = machine.home_cycle(machine.position)
         elif main_input == "c":
