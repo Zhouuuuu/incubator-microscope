@@ -311,7 +311,7 @@ class CNC(Camera): #Class for motor control which inherits Camera class for imag
             except Exception as error:
                 print(error)
 
-    def night_cycle(self, plate_dict, camera, position, camera, cycle_dict):
+    def night_cycle(self, camera, position, camera, cycle_dict):
       
         num_positions = input("Number of positions?")
         num_positions = int(num_positions)
@@ -322,6 +322,8 @@ class CNC(Camera): #Class for motor control which inherits Camera class for imag
             while not keyboard.is_pressed("Enter"):
                 self.jog(camera, position,xMin, xMax, yMin, yMax, zMin, zMax)
             cycle_dict[i] = position
+            confirm = f"Position {i} set as {position}"
+            print(confirm)
             count = count + 1
         
         while self.home_cycle(position):
