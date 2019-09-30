@@ -30,12 +30,12 @@ jog_dict = {
     "e": None
     }
 
-[xMin, xMax] = [0.0,120.0]
+[xMin, xMax] = [0.0, 120.0]
 [yMin, yMax] = [0.0, 120.0]
 [zMin, zMax] = [-56.0, 50.0]
 
 class Camera:
-    def __init__(self): #initialize Camera object
+    def __init__(self): #initialize Camera
         
         self.camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice()) #create instance of Camera
 
@@ -74,7 +74,7 @@ class Camera:
         ipo.SetQuality(100)
         filename = nowstr + ".jpeg"
 
-        #Save using cv2
+        #Save image to current directory
         try:
             image = self.converter.Convert(grabResult)
             img = image.GetArray()
@@ -85,6 +85,7 @@ class Camera:
             print("Error saving image:", error)
             return False
         return True
+      
 
     def acquire_image(self): #Method for grabbing and saving one image
         
@@ -145,9 +146,10 @@ class Camera:
                 break
                     
 class CNC(Camera): #Class for motor control which inherits Camera class for image save functionality.
+  
     def __init__(self): #Initialize instance of CNC
         self.axes = serial.Serial("COM4", baudrate = 115200, timeout = 1) #Open serial port connected to Arduino/GRBL
-        #self.LED = serial.Serial #initialize LED
+
         time.sleep(2)
 
         #Home the device on start up
@@ -160,7 +162,7 @@ class CNC(Camera): #Class for motor control which inherits Camera class for imag
         print("Homing device...")
         self.axes.write("$22 = 1\n".encode())
         self.axes.write("$x\n".encode())
-        self.axes.write("$h\n".encode()) #start
+        self.axes.write("$h\n".encode()) #start homing
         self.axes.flushInput()
         self.axes.flushOutput()
         for i in range(7):
@@ -172,12 +174,6 @@ class CNC(Camera): #Class for motor control which inherits Camera class for imag
             time.sleep(1) #finish
         
         print("Device initialized.")
-
-    def configure_settings(self): #Method for writing directly to GRBL
-        setting = input("\nEnter grbl setting to be changed: ")
-        setting = setting + "\n"
-        self.axes.write(setting.encode())
-        return setting
 
     def home_cycle(self, position): #Method for homing the machine
         count = 0
@@ -193,7 +189,7 @@ class CNC(Camera): #Class for motor control which inherits Camera class for imag
             count = count + 1
         print("Homing cycle completed.")
         position = [0,0,0]
-        return position     #Position must be returned with every move so that the program knows where the machine
+        return position
 
     def wellplate(self, plate_list):
         while True:
@@ -205,15 +201,15 @@ class CNC(Camera): #Class for motor control which inherits Camera class for imag
             print("Please enter a valid number (6, 12, 24, 48, 96).")
         
 
-    def well_move(self, plate, position):
+    def well_move(self, plate, position): #Moves the machine to desired well input given that it is in the well plate
 
         print("\nWhich well (ex. A1)?")
         print("Enter nothing to go back.")
         well = input(">> ")
         time.sleep(0.05)
-        if well in plate and position == plate[well]:
+        if well in plate and position == plate[well]: #Check current position to see if it is already at input
             print("Already at", well)
-        elif well in plate and position != plate[well]:
+        elif well in plate and position != plate[well]: #If not at input, move to well
             x_move = str(plate[well][0] - position[0])
             y_move = str(plate[well][1] - position[1])
             z_move = str(plate[well][2] - position[2])
@@ -225,10 +221,10 @@ class CNC(Camera): #Class for motor control which inherits Camera class for imag
             print("Exited.")
             return position
         else:
-            print("Invalid input. Please try again.")
+            print("Invalid input. Please try again.") #If well code does not exist in well plate
         return position
     
-    def jog(self, camera, position, xMin, xMax, yMin, yMax, zMin, zMax):
+    def jog(self, camera, position, xMin, xMax, yMin, yMax, zMin, zMax): #Method for jogging axes
         jog_increment = 0.005
         sleep_time = 0.1
         self.axes.write("$110 = 400\n".encode())
@@ -236,17 +232,18 @@ class CNC(Camera): #Class for motor control which inherits Camera class for imag
         self.axes.write("$112 = 300\n".encode())
         print("Use the arrow keys to jog the X and Y axes.")
         print("Use the page up and page down keys to jog the Z axis.")
-        print("Use ctrl and alt to change the jog increment.")
+        print("Use ctrl and alt to change the jog increment by 0.01.")
+        print("Press shift to enter a jog increment.")
         print("Press p to take a picture.")
         print("Press 'esc' to exit.")
         print("Current position: ", position)
         print("Jog increment: ", jog_increment)
         while True:
             try:
-                if keyboard.is_pressed("right") and xMin <= position[0] + jog_increment <= xMax:
+                if keyboard.is_pressed("right") and xMin <= position[0] + jog_increment <= xMax: #X-axis control
                     gcode_command = f"G91 X{jog_increment}\n"
                     self.axes.write(gcode_command.encode())
-                    position[0] = round(position[0] + jog_increment, 5)
+                    position[0] = round(position[0] + jog_increment, 5) #Update position
                     print("Current position: ", position)
                     time.sleep(sleep_time)
                 elif keyboard.is_pressed("left") and xMin <= position[0] - jog_increment <= xMax:
@@ -255,7 +252,7 @@ class CNC(Camera): #Class for motor control which inherits Camera class for imag
                     position[0] = round(position[0] - jog_increment, 5)
                     print("Current position: ", position)
                     time.sleep(sleep_time)
-                elif keyboard.is_pressed("up") and yMin <= position[1] + jog_increment <= yMax:
+                elif keyboard.is_pressed("up") and yMin <= position[1] + jog_increment <= yMax: #Y-axis control
                     gcode_command = f"G91 Y{jog_increment}\n"
                     self.axes.write(gcode_command.encode())
                     position[1] = round(position[1] + jog_increment, 5)
@@ -267,7 +264,7 @@ class CNC(Camera): #Class for motor control which inherits Camera class for imag
                     position[1] = round(position[1] - jog_increment, 5)
                     print("Current position: ", position)
                     time.sleep(sleep_time)
-                elif keyboard.is_pressed("page_down") and zMin <= position[2] + jog_increment <= zMax:
+                elif keyboard.is_pressed("page_down") and zMin <= position[2] + jog_increment <= zMax: #Z-axis control
                     gcode_command = f"G91 Z{jog_increment}\n"
                     self.axes.write(gcode_command.encode())
                     position[2] = round(position[2] + jog_increment, 5)
@@ -279,7 +276,7 @@ class CNC(Camera): #Class for motor control which inherits Camera class for imag
                     position[2] = round(position[2] - jog_increment, 5)
                     print("Current position: ", position)
                     time.sleep(sleep_time)
-                elif keyboard.is_pressed("alt"):
+                elif keyboard.is_pressed("alt"): #change jog increment by 0.01
                     jog_increment = round(jog_increment + 0.01, 4)
                     print("Jog increment: ", jog_increment)
                     sleep_time = 0.25
@@ -305,13 +302,13 @@ class CNC(Camera): #Class for motor control which inherits Camera class for imag
                     print("Jog increment: ", jog_increment)
                     sleep_time = 0.25
                     time.sleep(0.05)
-                elif keyboard.is_pressed("shift"):
+                elif keyboard.is_pressed("shift"): #Enter a custom jog increment
                     jog_increment = input("Enter a jog increment: ")
                     jog_increment = round(float(jog_increment),5)
-                elif keyboard.is_pressed("p"):
+                elif keyboard.is_pressed("p"): #Image acquisition
                     Camera.acquire_image(camera)
                     time.sleep(1)
-                elif keyboard.is_pressed("Esc"):
+                elif keyboard.is_pressed("Esc"): #Exit jogging mode
                     time.sleep(0.5)
                     return position
                 elif keyboard.is_pressed("space"):
@@ -320,13 +317,15 @@ class CNC(Camera): #Class for motor control which inherits Camera class for imag
             except Exception as error:
                 print(error)
 
-    def night_cycle(self, camera, position,xMin, xMax, yMin, yMax, zMin, zMax):
+    def cycle(self, camera, position,xMin, xMax, yMin, yMax, zMin, zMax): #Set position for machine to cycle between and acquire images
         cycle_dict = {}
         num_positions = input("Number of positions? ")
         num_positions = int(num_positions)
         print("Jog axes to position to be imaged. Press space to save the position.")
 
         count = 0
+        
+        #Set positions to be cycled between        
         while count < num_positions:
             position = self.jog(camera, position,xMin, xMax, yMin, yMax, zMin, zMax)
             time.sleep(0.2)
@@ -339,6 +338,8 @@ class CNC(Camera): #Class for motor control which inherits Camera class for imag
 
         print(cycle_dict)
         
+        
+         #Cycle between images
         while self.home_cycle(position):
             break
         time.sleep(1)
@@ -367,6 +368,7 @@ class CNC(Camera): #Class for motor control which inherits Camera class for imag
                 print(grbl_out)
                 time.sleep(0.2)
                 
+                #Wait for serial port to read 'Idle' before taking picture
                 while b'Run' in grbl_out:
                     self.axes.flushInput()
                     self.axes.write("?\n".encode())
@@ -384,7 +386,7 @@ class CNC(Camera): #Class for motor control which inherits Camera class for imag
                 
         return True
     
-def show_video(c):
+def show_video(c): #Function for live image window
     if not c.camera.IsGrabbing():
         c.camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)            
     while c.camera.IsGrabbing():
@@ -415,7 +417,6 @@ def main(camera):
         print("Enter h to home the machine")
         print("Enter n to change the well plate number.")
         print("Enter u to change camera parameters.")
-        print("Enter c to enter a custom GRBL command. (CAUTION)")
         print("To stop the program, enter 'exit'.")
 
         main_input = input(">> ")
@@ -428,12 +429,9 @@ def main(camera):
         elif main_input == "n":
             plate_num = machine.wellplate(plate_list)
         elif main_input == "z":
-            machine.night_cycle(camera, machine.position,xMin, xMax, yMin, yMax, zMin, zMax)
+            machine.cycle(camera, machine.position,xMin, xMax, yMin, yMax, zMin, zMax)
         elif main_input == "h":
             machine.position = machine.home_cycle(machine.position)
-        elif main_input == "c":
-            setting = machine.configure_settings()
-            machine.axes.write(setting.encode())
         elif main_input == "u":
             gain = camera.change_parameters()
         elif main_input == "exit":
@@ -442,11 +440,11 @@ def main(camera):
             sys.exit()
         else:
             print("Invalid input. Please try again.")
-    print("ALARM(1): Reset to continue.")
-    return False
     
 if __name__ == "__main__":
     camera = Camera()
+    
+    #Thread main and live image window to run simultaneously
     t1 = threading.Thread(target = main, args = (camera,))
     t2 = threading.Thread(target = show_video, args = (camera,))
     t1.start()
